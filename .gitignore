@@ -1,4 +1,5 @@
-﻿.venv/
+﻿@"
+.venv/
 __pycache__/
 *.pyc
 .cache/
@@ -6,15 +7,9 @@ results/
 *.h5
 *.pt
 *.pth
-Falciparum/
-Vivax/
-Ovale/
-Malariae/
-crops/
 M5_DATASET/
 baseline_fold_1_results.csv
 DatasetDescription.pdf
-
 Falciparum/gt/
 Falciparum/img/
 Malariae/gt/
@@ -23,3 +18,4 @@ Ovale/gt/
 Ovale/img/
 Vivax/gt/
 Vivax/img/
+"@ | Set-Content .gitignore

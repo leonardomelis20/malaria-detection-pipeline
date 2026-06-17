@@ -1,0 +1,38 @@
+﻿sample,method,radius_px,crop_w,crop_h,parasite_area_px2,cx,cy,x1,y1,x2,y2,rejection_log
+1312132815-0001-G,fallback (median radius),167,334,334,10125.0,1198,1011,1031,844,1365,1178,"LAB rifiutato: area troppo piccola (15196 ≤ 18225) | Hough rifiutato: raggio Hough troppo piccolo (57px < 64px, probabilmente è il parassita)"
+1312132815-0002-T,fallback (median radius),167,334,334,4334.0,1350,1024,1183,857,1517,1191,"LAB rifiutato: raggio stimato fuori range (254px, atteso 57–227px) | Hough rifiutato: raggio Hough troppo piccolo (44px < 64px, probabilmente è il parassita)"
+1312132815-0003-G,fallback (median radius),167,334,334,8285.0,1124,987,957,820,1291,1154,"LAB rifiutato: area troppo piccola (10675 ≤ 14913) | Hough rifiutato: raggio Hough troppo piccolo (56px < 64px, probabilmente è il parassita)"
+1312132815-0004-G,lab (lab+ellipse),126,252,252,6327.5,1404,1027,1300,877,1552,1129,
+1312132815-0005-G,lab (lab+ellipse),89,178,178,8169.5,1112,829,1026,716,1204,894,
+1312132815-0008-G,lab (lab+ellipse),133,266,266,11439.5,1325,1181,1169,1024,1435,1290,
+1312132815-0009-G,hough,75,150,150,6998.5,1190,957,1108,868,1258,1018,LAB rifiutato: compattezza troppo bassa (0.182 < 0.25)
+1312132815-0010-T,fallback (median radius),167,334,334,7736.0,1080,933,913,766,1247,1100,"LAB rifiutato: raggio stimato fuori range (357px, atteso 57–227px) | Hough rifiutato: raggio Hough troppo piccolo (53px < 64px, probabilmente è il parassita)"
+1312132815-0011-S,lab (lab+ellipse),143,286,286,6439.0,1338,1129,1203,947,1489,1233,
+1312132815-0012-S,lab (lab+ellipse),142,284,284,7986.5,1127,1111,1015,962,1299,1246,
+1312132815-0013-S,lab (lab+ellipse),110,220,220,7006.0,1254,1204,1154,1064,1374,1284,
+1312132815-0014-S,lab (lab+ellipse),129,258,258,9970.5,1183,1113,1060,972,1318,1230,
+1312132815-0015-S,lab (lab+ellipse),128,256,256,8454.0,1218,1084,1057,956,1313,1212,
+1312132815-0016-T,lab (lab+ellipse),76,152,152,4054.0,1123,933,1044,900,1196,1052,
+1312132815-0017-T,lab (lab+ellipse),141,282,282,8283.5,1283,1133,1153,991,1435,1273,
+1401063467-0001-S,fallback (median radius),167,334,334,9102.0,1248,989,1081,822,1415,1156,"LAB rifiutato: raggio stimato fuori range (246px, atteso 57–227px) | Hough rifiutato: raggio Hough troppo piccolo (54px < 64px, probabilmente è il parassita)"
+1401063467-0002-T,lab (lab+ellipse),151,302,302,5302.0,1214,1084,1034,901,1336,1203,
+1401063467-0003-T,lab (lab+ellipse),166,332,332,4613.0,1247,953,1097,784,1429,1116,
+1401063467-0004-R_T,fallback (median radius),167,334,334,6979.0,2082,322,1915,155,2249,489,"LAB rifiutato: compattezza troppo bassa (0.155 < 0.25) | Hough rifiutato: raggio Hough troppo piccolo (40px < 64px, probabilmente è il parassita)"
+1401063467-0005-T,lab (lab+ellipse),242,484,484,4102.0,1104,963,863,711,1347,1195,
+1401063467-0006-T,fallback (median radius),167,334,334,3663.5,1292,851,1125,684,1459,1018,"LAB rifiutato: compattezza troppo bassa (0.172 < 0.25) | Hough rifiutato: raggio Hough troppo piccolo (26px < 64px, probabilmente è il parassita)"
+1401063467-0007-S,fallback (median radius),167,334,334,8657.0,1178,1132,1011,965,1345,1299,"LAB rifiutato: area troppo piccola (3340 ≤ 15583) | Hough rifiutato: raggio Hough troppo piccolo (41px < 64px, probabilmente è il parassita)"
+1401063467-0008-S,fallback (median radius),167,334,334,8135.5,1111,941,944,774,1278,1108,"LAB rifiutato: compattezza troppo bassa (0.127 < 0.25) | Hough rifiutato: raggio Hough troppo piccolo (49px < 64px, probabilmente è il parassita)"
+1401063467-0009-T,lab (lab+ellipse),119,238,238,2919.5,1200,987,1070,820,1308,1058,
+1401063467-0010-T,fallback (median radius),167,334,334,7187.5,1171,987,1004,820,1338,1154,"LAB rifiutato: compattezza troppo bassa (0.238 < 0.25) | Hough rifiutato: raggio Hough troppo piccolo (43px < 64px, probabilmente è il parassita)"
+1401063467-0011-G,fallback (median radius),167,334,334,5451.0,1172,1012,1005,845,1339,1179,"LAB rifiutato: compattezza troppo bassa (0.170 < 0.25) | Hough rifiutato: raggio Hough troppo piccolo (48px < 64px, probabilmente è il parassita)"
+1401063467-0012-S,fallback (median radius),167,334,334,7092.0,1288,1154,1121,987,1455,1321,"LAB rifiutato: compattezza troppo bassa (0.217 < 0.25) | Hough rifiutato: raggio Hough troppo piccolo (49px < 64px, probabilmente è il parassita)"
+1401063467-0013-T,fallback (median radius),167,334,334,8917.0,1292,1116,1125,949,1459,1283,"LAB rifiutato: compattezza troppo bassa (0.128 < 0.25) | Hough rifiutato: raggio Hough troppo piccolo (59px < 64px, probabilmente è il parassita)"
+1401080976-0001-T,lab (lab+ellipse),130,260,260,7471.5,1231,1164,1053,1013,1313,1273,
+1401080976-0002-T,lab (lab+ellipse),182,364,364,7800.0,1183,1039,989,921,1353,1285,
+1401080976-0003-T,lab (lab+ellipse),168,336,336,7086.0,1619,1215,1438,1018,1774,1354,
+1401080976-0004-T,fallback (median radius),167,334,334,2238.0,1230,1193,1063,1026,1397,1360,"LAB rifiutato: compattezza troppo bassa (0.166 < 0.25) | Hough rifiutato: raggio Hough troppo piccolo (56px < 64px, probabilmente è il parassita)"
+1401080976-0005-T,fallback (median radius),167,334,334,6864.5,1726,869,1559,702,1893,1036,"LAB rifiutato: compattezza troppo bassa (0.121 < 0.25) | Hough rifiutato: raggio Hough troppo piccolo (45px < 64px, probabilmente è il parassita)"
+1401080976-0006-T,fallback (median radius),167,334,334,3621.0,1240,982,1073,815,1407,1149,"LAB rifiutato: raggio stimato fuori range (458px, atteso 57–227px) | Hough rifiutato: raggio Hough troppo piccolo (36px < 64px, probabilmente è il parassita)"
+1401080976-0007-T,lab (lab+ellipse),221,442,442,8050.0,1171,883,1006,704,1448,1146,
+1401080976-0008-T,lab (lab+ellipse),181,362,362,2746.5,1202,985,1047,782,1409,1144,
+1401080976-0009-S_T,lab (lab+ellipse),162,324,324,3695.0,1291,1196,1137,1024,1461,1348,
