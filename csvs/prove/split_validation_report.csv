@@ -1,0 +1,11 @@
+split_file,total_rows,train_rows,test_rows,row_sum_ok,train_groups_n,test_groups_n,group_overlap_n,group_overlap_ids,missing_train_labels_n,missing_train_labels,missing_test_labels_n,missing_test_labels,duplicate_filename_n,duplicate_filepath_n,falciparum_train,malariae_train,ovale_train,vivax_train,falciparum_test,malariae_test,ovale_test,vivax_test
+split_run_01.csv,210,146,64,True,12,5,0,,0,,0,,0,0,84,28,19,15,20,9,10,25
+split_run_02.csv,210,130,80,True,12,5,0,,0,,0,,0,0,83,22,10,15,21,15,19,25
+split_run_03.csv,210,154,56,True,12,5,0,,0,,0,,0,0,91,28,10,25,13,9,19,15
+split_run_04.csv,210,129,81,True,12,5,0,,0,,0,,0,0,89,15,10,15,15,22,19,25
+split_run_05.csv,210,141,69,True,12,5,0,,0,,0,,0,0,84,22,10,25,20,15,19,15
+split_run_06.csv,210,132,78,True,12,5,0,,0,,0,,0,0,74,24,19,15,30,13,10,25
+split_run_07.csv,210,135,75,True,12,5,0,,0,,0,,0,0,101,9,10,15,3,28,19,25
+split_run_08.csv,210,146,64,True,12,5,0,,0,,0,,0,0,80,22,19,25,24,15,10,15
+split_run_09.csv,210,127,83,True,12,5,0,,0,,0,,0,0,89,13,10,15,15,24,19,25
+split_run_10.csv,210,144,66,True,12,5,0,,0,,0,,0,0,94,15,10,25,10,22,19,15

@@ -1,0 +1,3 @@
+﻿subset,n_rows,n_ok,n_partial,n_missing,n_empty_gt,n_missing_gt_file,n_invalid_box,mean_coverage,status
+Malariae,37,31,6,0,0,0,0,0.9540964854431662,CHECK_ISSUES
+Ovale,29,25,4,0,0,0,0,0.9559859434960697,CHECK_ISSUES

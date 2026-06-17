@@ -1,0 +1,5 @@
+﻿subset,n_img_files,n_gt_files,n_crop_files,n_ok_matches,n_missing_gt_for_img,n_missing_crop_for_img,n_gt_without_img,n_crop_without_img,subset_status
+Falciparum,104,104,0,0,1,104,1,0,MISMATCH
+Malariae,37,37,37,37,0,0,0,0,OK
+Ovale,29,29,29,29,0,0,0,0,OK
+Vivax,40,40,0,0,0,40,0,0,MISMATCH
