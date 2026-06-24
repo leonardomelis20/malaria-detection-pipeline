@@ -1,0 +1,7 @@
+{
+    "accuracy": 0.9137931034482759,
+    "f1_macro": 0.8944444444444445,
+    "mcc": 0.8854930725346374,
+    "model_name": "RedDino",
+    "fine_tune_mode": "lora"
+}
