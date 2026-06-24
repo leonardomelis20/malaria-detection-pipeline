@@ -6,6 +6,25 @@ from PIL import Image
 import numpy as np
 from pathlib import Path
 
+# Radice del progetto ricavata dalla posizione di questo file (4 livelli su)
+_BASE_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+_KNOWN_SPECIES = {"Falciparum", "Malariae", "Ovale", "Vivax"}
+
+def _relocate_path(path_str):
+    """Riporta un path assoluto (generato su un'altra macchina) sotto _BASE_ROOT locale.
+
+    Strategia: cerca il primo componente del path che è un nome di specie,
+    poi ricostruisce da lì in poi sotto _BASE_ROOT.
+    Se non trova nessuna specie (path già corretto o non riconoscibile), restituisce
+    il path originale invariato.
+    """
+    parts = Path(path_str).parts
+    for i, part in enumerate(parts):
+        if part in _KNOWN_SPECIES:
+            return str(_BASE_ROOT.joinpath(*parts[i:]))
+    return path_str
+
+
 def get_transforms(image_size, is_training):
     if is_training == True:
         return A.Compose([
@@ -33,6 +52,7 @@ class MalariaDataset(Dataset):
     
     def __init__(self, csv_path, transform, label_to_id):
         self.data = pd.read_csv(csv_path)
+        self.data["filepath"] = self.data["filepath"].apply(_relocate_path)
         self.transform = transform
         self.label_to_id = label_to_id
 

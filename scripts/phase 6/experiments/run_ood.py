@@ -17,21 +17,23 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def run_ood_experiment(model_name, fine_tune_mode, source_species, target_species):
+    output_dir = OUTPUT_DIR / "ood" / f"{source_species}_to_{target_species}" / model_name / fine_tune_mode
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if (output_dir / "metrics.json").exists():
+        print(f"SKIP — {model_name} | {fine_tune_mode} | {source_species} -> {target_species} già completato")
+        return
+
     filtered_df = []
-    
     for fold in range(1, 6):
         train_csv = SPLIT_DIR / f"fold{fold}_train.csv"
         df = pd.read_csv(train_csv)
-        filtered_train = df[df["label"] == source_species]
-        filtered_df.append(filtered_train)
+        filtered_df.append(df[df["label"] == source_species])
     source_df = pd.concat(filtered_df, ignore_index=True)
 
     train_df, val_df = train_test_split(source_df, test_size=0.2, random_state=RANDOM_SEED)
     test = pd.read_csv(TEST_CSV)
     filtered_test = test[test["label"] == target_species]
-
-    output_dir = OUTPUT_DIR / "ood" / f"{source_species}_to_{target_species}" / model_name / fine_tune_mode
-    output_dir.mkdir(parents=True, exist_ok=True)
 
     temp_train_csv = output_dir / "temp_train.csv"
     temp_val_csv = output_dir / "temp_val.csv"
@@ -43,31 +45,26 @@ def run_ood_experiment(model_name, fine_tune_mode, source_species, target_specie
 
     save_path = output_dir / "best_model.pt"
 
+    batch_size = MODEL_CONFIG[model_name]["batch_size"]
+    grad_accum_steps = MODEL_CONFIG[model_name]["grad_accum_steps"]
+
     train_transforms = get_transforms(image_size=MODEL_CONFIG[model_name]["image_size"], is_training=True)
     train_dataset = MalariaDataset(temp_train_csv, train_transforms, SPECIES_TO_ID)
-    train_dataloader = get_dataloader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    train_dataloader = get_dataloader(train_dataset, batch_size=batch_size, shuffle=True)
 
     val_transforms = get_transforms(image_size=MODEL_CONFIG[model_name]["image_size"], is_training=False)
     val_dataset = MalariaDataset(temp_val_csv, val_transforms, SPECIES_TO_ID)
-    val_dataloader = get_dataloader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
+    val_dataloader = get_dataloader(val_dataset, batch_size=batch_size, shuffle=False)
 
     test_transforms = get_transforms(MODEL_CONFIG[model_name]["image_size"], is_training=False)
     test_dataset = MalariaDataset(temp_test_csv, test_transforms, SPECIES_TO_ID)
-    test_dataloader = get_dataloader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
+    test_dataloader = get_dataloader(test_dataset, batch_size=batch_size, shuffle=False)
 
-
-    labels = train_df["label"]
-    label_ids = labels.map(SPECIES_TO_ID).values
+    label_ids = train_df["label"].map(SPECIES_TO_ID).values
     loss = get_loss_function(label_ids, DEVICE, NUM_SPECIES)
-    
 
-    model = build_model(
-        model_name,
-        fine_tune_mode,
-        num_classes=NUM_SPECIES
-    )
+    model = build_model(model_name, fine_tune_mode, num_classes=NUM_SPECIES)
     model.to(DEVICE)
-    
 
     history = train_model(
         model=model,
@@ -77,7 +74,8 @@ def run_ood_experiment(model_name, fine_tune_mode, source_species, target_specie
         device=DEVICE,
         save_path=save_path,
         num_epochs=NUM_EPOCHS,
-        fine_tune_mode=fine_tune_mode
+        fine_tune_mode=fine_tune_mode,
+        grad_accum_steps=grad_accum_steps
     )
 
     model.load_state_dict(torch.load(save_path, map_location=DEVICE))
@@ -99,8 +97,16 @@ if __name__ == "__main__":
         for fine_tune_mode in FINE_TUNE_MODES:
             if fine_tune_mode == "lora" and not MODEL_CONFIG[model_name]["supports_lora"]:
                 continue
+            if model_name == "DinoBloom" and fine_tune_mode == "full":
+                print(f"\nSKIP DinoBloom+full — da testare separatamente (VRAM)")
+                continue
             for source, target in OOD_PAIRS:
                 print(f"\n>>> {model_name} | {fine_tune_mode} | {source} -> {target}")
-                run_ood_experiment(model_name, fine_tune_mode, source, target)                
+                try:
+                    run_ood_experiment(model_name, fine_tune_mode, source, target)
+                except Exception as e:
+                    import traceback
+                    print(f"ERRORE — {model_name} | {fine_tune_mode} | {source} -> {target}: {e}")
+                    traceback.print_exc()
 
 

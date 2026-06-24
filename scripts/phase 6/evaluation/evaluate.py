@@ -43,11 +43,13 @@ def run_evaluation(model, dataloader, device, class_names):
     all_probs = np.concatenate(all_probs)
     all_labels = np.concatenate(all_labels)
 
+    all_labels_list = list(range(len(class_names)))
+
     acc = accuracy_score(all_labels, all_preds)
-    f1 = f1_score(all_labels, all_preds, average="macro")
+    f1 = f1_score(all_labels, all_preds, average="macro", labels=all_labels_list, zero_division=0)
     mcc = matthews_corrcoef(all_labels, all_preds)
-    report = classification_report(all_labels, all_preds, target_names=class_names)
-    cm = confusion_matrix(all_labels, all_preds)
+    report = classification_report(all_labels, all_preds, target_names=class_names, labels=all_labels_list, zero_division=0)
+    cm = confusion_matrix(all_labels, all_preds, labels=all_labels_list)
 
     print(f"Accuracy: {acc:.4f} | F1 Macro: {f1:.4f} | MCC: {mcc:.4f}")
     print(report)

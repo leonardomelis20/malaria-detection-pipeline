@@ -34,15 +34,19 @@ MODEL_CONFIG = {
         "source": "torchvision",
         "pretrained_name": "resnet50",
         "supports_lora": False,
-        "lora_target_modules": []
+        "lora_target_modules": [],
+        "batch_size": 16,       # effective batch = 16 × 2 = 32
+        "grad_accum_steps": 2
     },
     "ConvNeXt": {
         "image_size" : 224,
         "embedding_dim" : 768,
         "source":  "torchvision",
-        "pretrained_name": "convnext_tiny",   
+        "pretrained_name": "convnext_tiny",
         "supports_lora": False,
-        "lora_target_modules": []
+        "lora_target_modules": [],
+        "batch_size": 16,
+        "grad_accum_steps": 2
     },
     "Swin-T": {
         "image_size" : 224,
@@ -50,7 +54,9 @@ MODEL_CONFIG = {
         "source":  "torchvision",
         "pretrained_name": "swin_t",
         "supports_lora": True,
-        "lora_target_modules": ["qkv"]
+        "lora_target_modules": ["qkv"],
+        "batch_size": 16,
+        "grad_accum_steps": 2
     },
     "ViT-B": {
         "image_size" : 224,
@@ -58,7 +64,9 @@ MODEL_CONFIG = {
         "source": "huggingface",
         "pretrained_name": "google/vit-base-patch16-224-in21k",
         "supports_lora": True,
-        "lora_target_modules": ["q_proj", "v_proj"]
+        "lora_target_modules": ["q_proj", "v_proj"],
+        "batch_size": 8,        # full fine-tuning: attention map 12×197×197 per ogni layer
+        "grad_accum_steps": 4   # effective batch = 8 × 4 = 32
     },
     "RedDino": {
         "image_size" : 224,
@@ -66,7 +74,9 @@ MODEL_CONFIG = {
         "source": "timm",
         "pretrained_name": "hf-hub:Snarcy/RedDino-base",
         "supports_lora": True,
-        "lora_target_modules": ["qkv"]
+        "lora_target_modules": ["qkv"],
+        "batch_size": 8,
+        "grad_accum_steps": 4
     },
     "DinoBloom": {
         "image_size" : 518,
@@ -74,12 +84,14 @@ MODEL_CONFIG = {
         "source": "timm",
         "pretrained_name": "hf-hub:1aurent/vit_base_patch14_224.dinobloom",
         "supports_lora": True,
-        "lora_target_modules": ["qkv"] 
+        "lora_target_modules": ["qkv"],
+        "batch_size": 4,        # 518px: input da ~1GB a batch=32; patch=14 → 1370 token
+        "grad_accum_steps": 8   # effective batch = 4 × 8 = 32
     }
 }
 
 #IPERPARAMETRI
-BATCH_SIZE = 32
+BATCH_SIZE = 16  # default di fallback; gli script usano MODEL_CONFIG[name]["batch_size"]
 NUM_EPOCHS = 50 #con early stopping
 LEARNING_RT_HEAD = 1e-3
 LEARNING_RT_BACKBONE = 1e-5

@@ -29,7 +29,7 @@ class EarlyStopping():
                 self.should_stop = True
                 print(f"WARNING: {self.counter} epochs with no progress, stopping")
 
-def train_one_epoch(model, dataloader, optimizer, loss_fn, device):
+def train_one_epoch(model, dataloader, optimizer, loss_fn, device, grad_accum_steps=1):
     model.train()
     if not any(p.requires_grad for p in model.backbone.parameters()):
         model.backbone.eval()
@@ -37,29 +37,34 @@ def train_one_epoch(model, dataloader, optimizer, loss_fn, device):
     total_correct = 0
     total_samples = 0
 
-    for batch in dataloader:
+    optimizer.zero_grad()
+    for i, batch in enumerate(dataloader):
 
         images, label_ids, _, _, _, _, _ = batch
 
         images = images.to(device)
         label_ids = label_ids.to(device)
 
-        optimizer.zero_grad()
         logits = model(images)
         loss = loss_fn(logits, label_ids)
 
-        loss.backward()
-        optimizer.step()
+        # scala la loss prima del backward: il gradiente accumulato su N step
+        # equivale matematicamente al gradiente calcolato su un batch N volte più grande
+        (loss / grad_accum_steps).backward()
 
         total_loss += loss.item() * len(label_ids)
-
         preds = torch.argmax(logits, dim=1)
         total_correct += (preds == label_ids).sum().item()
         total_samples += len(label_ids)
-    
+
+        is_last_batch = (i + 1) == len(dataloader)
+        if (i + 1) % grad_accum_steps == 0 or is_last_batch:
+            optimizer.step()
+            optimizer.zero_grad()
+
     avg_loss = total_loss / total_samples
     avg_acc = total_correct / total_samples
-    
+
     return avg_loss, avg_acc
 
 def validate_one_epoch(model, dataloader, loss_fn, device):
@@ -89,7 +94,7 @@ def validate_one_epoch(model, dataloader, loss_fn, device):
     
     return avg_loss, avg_acc
 
-def train_model(model, train_loader, val_loader, loss_fn, device, save_path, num_epochs, fine_tune_mode):
+def train_model(model, train_loader, val_loader, loss_fn, device, save_path, num_epochs, fine_tune_mode, grad_accum_steps=1):
     
     if fine_tune_mode == "head_only":
         optimizer = torch.optim.AdamW(
@@ -109,7 +114,7 @@ def train_model(model, train_loader, val_loader, loss_fn, device, save_path, num
     history = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
 
     for epoch in range(1, num_epochs+1):
-        train_loss, train_acc = train_one_epoch(model, dataloader=train_loader, optimizer=optimizer, loss_fn=loss_fn, device=device)
+        train_loss, train_acc = train_one_epoch(model, dataloader=train_loader, optimizer=optimizer, loss_fn=loss_fn, device=device, grad_accum_steps=grad_accum_steps)
         val_loss, val_acc = validate_one_epoch(model, val_loader, loss_fn, device)
 
         history["train_loss"].append(train_loss)
