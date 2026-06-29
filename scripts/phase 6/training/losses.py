@@ -21,7 +21,11 @@ def compute_class_weights(label_ids, num_classes=4):
 
     label_ids = np.array(label_ids)
     class_count = np.bincount(label_ids, minlength=num_classes)
-    class_weights = len(label_ids) / (num_classes * class_count)
+    class_weights = np.where(
+        class_count > 0,
+        len(label_ids) / (num_classes * class_count),
+        0.0
+    )
 
 
     weights_tensor = torch.tensor(class_weights, dtype=torch.float32)

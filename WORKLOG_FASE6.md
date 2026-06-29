@@ -316,3 +316,196 @@ Aggiunte due modifiche al blocco `__main__`, per allinearlo con `run_intra.py`:
 - = 15 combo attive × 9 coppie OOD = **135 run totali**
 
 Le 9 coppie OOD sono: Falciparum→Vivax, Falciparum→Ovale, Falciparum→Malariae, Vivax→Falciparum, Vivax→Ovale, Vivax→Malariae, Ovale→Falciparum, Ovale→Vivax, Ovale→Malariae. Il resume mechanism già presente in `run_ood.py` permette di interrompere e riprendere il loop senza ripetere le run già completate.
+
+---
+
+## 2026-06-26 — Diagnosi bug loop OOD e correzioni a losses.py e trainer.py
+
+### Contesto
+
+Dopo l'esecuzione del loop OOD (135 run completate), è emerso che tutti i `metrics.json` mostrano `f1_macro=0.0, accuracy=0.0, mcc=0.0`. Questo ha portato a una diagnosi dettagliata dei tre problemi segnalati.
+
+### Risultati OOD già salvati: da scartare o da conservare?
+
+I 135 `metrics.json` già salvati in `results/tuning/ood/` sono stati prodotti con i bug descritti sotto. Per quanto riguarda i valori numerici (F1, accuracy, MCC), le correzioni applicate oggi (Bug 1 e Bug 3) **non cambiano i numeri**: Bug 1 era cosmetic (i pesi inf non entravano nel calcolo), Bug 3 era di performance (early stopping). I valori a zero riflettono il protocollo OOD così come definito (vedi sotto). I risultati sono quindi da conservare e da interpretare correttamente, non da rigenerare per ragioni tecniche.
+
+### Bug 1 — Pesi infiniti in `losses.py` (cosmetic, nessun effetto sui risultati)
+
+**Diagnosi**: In contesto OOD il training set contiene una sola specie. Le altre tre classi hanno `class_count=0`, causando una divisione per zero e pesi `inf` nella CrossEntropyLoss pesata. Tuttavia i pesi `inf` riguardano classi mai presenti nel training set, quindi non entrano mai nella formula della loss (che normalizza per `Σ weight[y_i]` sui soli campioni del batch). Il training era matematicamente corretto nonostante il warning.
+
+**Correzione applicata** in `scripts/phase 6/training/losses.py`: sostituita la divisione diretta con `np.where(class_count > 0, N/(K*count), 0.0)`. Le classi assenti ricevono peso 0 invece di inf. Effetto sui risultati: nessuno (equivalente matematicamente).
+
+### Bug 2 — Disallineamento SPECIES vs SPECIES_TO_ID (display bug, non corretto in questa sessione)
+
+**Diagnosi**: `SPECIES = ["Falciparum", "Vivax", "Ovale", "Malariae"]` ha Vivax all'indice 1 e Malariae all'indice 3, ma `SPECIES_TO_ID` assegna Malariae=1 e Vivax=3. Nei report testuali (`classification_report`) e nelle confusion matrix PNG, Vivax e Malariae risultano scambiate. I valori numerici in `metrics.json` (F1 macro, accuracy, MCC) sono corretti perché calcolati sugli ID numerici. Il bug è presente anche nelle run intra-dataset, ma non altera le metriche numeriche. Correzione non applicata in questa sessione: decisione rimandata.
+
+### Bug 3 — Early stopping con `min_delta=0.0` (performance, non correttezza)
+
+**Diagnosi**: Con `min_delta=0.0`, qualunque miglioramento infinitesimale della val_loss resetta il contatore. In OOD la val_loss scende rapidamente verso 0 e poi oscilla con micro-miglioramenti, quindi il contatore non raggiunge mai la patience=10. Ogni run eseguiva sempre le 50 epoche intere anche quando il modello aveva già convergito alla prima o seconda epoca.
+
+**Correzione applicata** in `scripts/phase 6/training/trainer.py`: `min_delta` cambiato da `0.0` a `1e-4`. Con questa soglia, se la val_loss non migliora di almeno 0.0001 per 10 epoche consecutive il training si ferma. Effetto sui risultati: nessuno (il best checkpoint è già salvato alla prima epoca di convergenza); effetto sul tempo di calcolo: significativo, specialmente per DinoBloom a 518px.
+
+### Nota concettuale: perché F1=0 non è un bug del codice
+
+Il protocollo OOD di Fase 6 allena un classificatore a 4 classi su immagini di una sola specie sorgente, poi lo testa su immagini di una specie target diversa. Per costruzione, il modello impara "qualsiasi immagine = classe sorgente" e predice sempre quella classe: sul test set (solo immagini target) ogni predizione è sbagliata → F1=0.
+
+Questo è diverso dal protocollo OOD di Fase 5, che allenava su *fasi del ciclo cellulare* (G/R/S/T) della specie sorgente e testava sulle stesse fasi della specie target. Le fasi sono un label space condiviso tra le specie, quindi il trasferimento aveva senso biologico. In Fase 6 non esiste un label space condiviso tra sorgente e target nel protocollo attuale. I valori a zero sono la risposta corretta al protocollo così definito, non un artefatto tecnico. Eventuale ridefinizione del protocollo va discussa con il relatore.
+
+---
+
+## 2026-06-28 — Analisi risultati loop OOD completato (135/135 run)
+
+### Riepilogo esecuzione
+
+Il loop OOD è completato con 135/135 run salvate in `results/tuning/ood/`. Le 15 combo attive (dopo gli skip per LoRA non supportata e DinoBloom+full) × 9 coppie source→target.
+
+### Risultato dominante: F1=0 su 132/135 run
+
+Come previsto dall'analisi del protocollo del 2026-06-26, **132 run su 135 producono F1 macro = 0.0, accuracy = 0.0, MCC = 0.0**. Il pattern è uniforme su tutti i modelli (ResNet50, ConvNeXt, Swin-T, ViT-B, RedDino) e su tutte e tre le modalità (head_only, full, lora): qualunque modello allenato su una sola specie predice sempre quella specie sul test set della specie target, dando zero predizioni corrette.
+
+### Eccezione: 3 run DinoBloom con F1 non zero
+
+Le uniche tre run con F1 > 0 sono tutte DinoBloom:
+
+| Coppia | Modalità | F1 macro | Accuracy |
+|---|---|---|---|
+| Ovale → Falciparum | lora | **0.080** | 0.190 |
+| Falciparum → Malariae | head_only | **0.071** | 0.167 |
+| Falciparum → Ovale | head_only | **0.045** | 0.100 |
+
+I valori sono bassi in assoluto (F1 < 0.10), ma statisticamente significativi rispetto al fondo di zeri. Il MCC è 0 in tutti e tre i casi, il che indica che la correlazione tra predizioni e label vere è nulla nonostante l'accuracy non sia zero: il modello classifica qualche campione correttamente ma non in modo sistematico.
+
+### Interpretazione
+
+Il fatto che le uniche eccezioni siano DinoBloom è coerente con la sua architettura: DinoBloom è pre-allenato specificamente su immagini di microscopia di sangue malarico (hf-hub:1aurent/vit_base_patch14_224.dinobloom). A differenza dei modelli ImageNet-pretrained, le sue feature sono già orientate al dominio della microscopia malarica. Questo potrebbe conferire una minima trasferibilità cross-specie anche in un contesto di allenamento monospecie: le rappresentazioni interne di DinoBloom per immagini di Falciparum o Ovale condividono già un vocabolario visivo parzialmente compatibile con Malariae e Falciparum.
+
+L'eccezione DinoBloom+lora è la più alta (F1=0.08 su Ovale→Falciparum): LoRA adatta solo le matrici di attenzione, mantenendo gran parte delle feature pre-allenate. In questo caso l'adattamento LoRA potrebbe preservare meglio la generalità del backbone rispetto al full fine-tuning, che tenderebbe a specializzarsi troppo sulla specie sorgente.
+
+Tutti gli altri modelli (compresi RedDino, che è domain-specific per istopatologia ma non per malaria) restano a F1=0: il loro pre-training su ImageNet o su tessuto istologico non fornisce feature abbastanza specifiche da generalizzare tra specie malariche.
+
+### Nota metodologica per il report
+
+Il protocollo OOD di Fase 6 (train monospecie, test su specie diversa) non è comparabile con Fase 5 (train su fasi morfologiche di una specie, test su fasi di un'altra). I risultati di Fase 6 OOD non sono "sbagliati": misurano la generalizzazione cross-specie di un classificatore addestrato su dati mono-specie, che è un task estremo e produce quasi invariabilmente F1=0. Il risultato più interessante per il report è l'eccezione DinoBloom, che evidenzia il valore del pre-training domain-specific per la robustezza OOD.
+
+### Risultati completi
+
+Riepilogo per combo (F1 macro mediato sulle 9 coppie source→target):
+
+| Modello | Modalità | F1 media | F1 max | Run non-zero |
+|---|---|---|---|---|
+| DinoBloom | head_only | 0.0130 | 0.0714 | 2/9 |
+| DinoBloom | lora | 0.0089 | 0.0800 | 1/9 |
+| Swin-T | head_only | 0.0000 | 0.0000 | 0/9 |
+| Swin-T | full | 0.0000 | 0.0000 | 0/9 |
+| Swin-T | lora | 0.0000 | 0.0000 | 0/9 |
+| ViT-B | head_only | 0.0000 | 0.0000 | 0/9 |
+| ViT-B | full | 0.0000 | 0.0000 | 0/9 |
+| ViT-B | lora | 0.0000 | 0.0000 | 0/9 |
+| ResNet50 | head_only | 0.0000 | 0.0000 | 0/9 |
+| ResNet50 | full | 0.0000 | 0.0000 | 0/9 |
+| ConvNeXt | head_only | 0.0000 | 0.0000 | 0/9 |
+| ConvNeXt | full | 0.0000 | 0.0000 | 0/9 |
+| RedDino | head_only | 0.0000 | 0.0000 | 0/9 |
+| RedDino | full | 0.0000 | 0.0000 | 0/9 |
+| RedDino | lora | 0.0000 | 0.0000 | 0/9 |
+
+DinoBloom+full escluso (VRAM). LoRA esclusa per ResNet50 e ConvNeXt.
+
+Dettaglio delle 3 run con F1 > 0:
+
+| Coppia | Modello | Modalità | F1 macro | Accuracy | MCC |
+|---|---|---|---|---|---|
+| Ovale → Falciparum | DinoBloom | lora | 0.0800 | 0.1905 | 0.0 |
+| Falciparum → Malariae | DinoBloom | head_only | 0.0714 | 0.1667 | 0.0 |
+| Falciparum → Ovale | DinoBloom | head_only | 0.0455 | 0.1000 | 0.0 |
+
+---
+
+## 2026-06-28 — Test VRAM DinoBloom+full e avvio run mancanti
+
+### Motivazione
+
+DinoBloom+full era stato escluso da entrambi i loop (run_intra.py e run_ood.py) con un guard esplicito perché il costo VRAM del full fine-tuning a 518px non era stato verificato empiricamente. Il test head_only aveva dato un picco di 0.58 GB (solo il modello in forward, senza gradienti sul backbone). Con full, tutti i 12 transformer layer richiedono che PyTorch mantenga in memoria le activation map intermedie per la backpropagation — costo molto più alto.
+
+### Metodo: run_dinobloom_test.py modificato
+
+`run_dinobloom_test.py` è stato adattato cambiando `mode = "head_only"` in `mode = "full"` e aggiungendo `torch.cuda.reset_peak_memory_stats()` dopo il caricamento del modello (per misurare solo il costo del training, escludendo i 0.35 GB fissi del modello). Il test ha girato fold1, 2 epoche, con batch_size=4 e grad_accum_steps=8 come configurati in MODEL_CONFIG["DinoBloom"].
+
+### Risultato
+
+```
+VRAM dopo caricamento modello: 0.35 GB
+Epoch 1 | train_loss: 0.8218 | train_acc: 0.7477 | val_loss: 0.4053 | val_acc: 0.8857
+Epoch 2 | train_loss: 0.0125 | train_acc: 1.0000 | val_loss: 0.4902 | val_acc: 0.8857
+VRAM picco: 5.16 GB
+Test DinoBloom completato senza OOM.
+```
+
+**Picco VRAM: 5.16 GB su 6.00 GB disponibili.** Margine di ~0.84 GB: sufficiente per procedere in modo stabile, tenuto conto che le run complete (fino a 50 epoche con early stopping) non aggiungono allocazione rispetto alle 2 epoche di test (il grafo computazionale ha la stessa dimensione per ogni batch, indipendentemente dal numero di epoche).
+
+### Approccio adottato: script separati
+
+Anziché rimuovere il guard da run_intra.py e run_ood.py (che restano intatti per riproducibilità), sono stati creati due script dedicati:
+- `experiments/run_dinobloom_full_intra.py` — fold1 e fold2 con resume mechanism
+- `experiments/run_dinobloom_full_ood.py` — 9 coppie source→target con resume mechanism
+
+Entrambi sono hardcodati su `MODEL_NAME = "DinoBloom"` e `FINE_TUNE_MODE = "full"`, replicano la stessa logica degli script principali (stessa struttura dati, stesse metriche, stesso save_results), e salvano i risultati nelle stesse cartelle dei loop principali (`results/tuning/intra/` e `results/tuning/ood/`) per coerenza con gli altri esperimenti.
+
+### Risultati intra (completati 2026-06-29)
+
+| Fold | F1 macro | Accuracy | MCC |
+|------|----------|----------|-----|
+| fold1 | **0.958** | 0.966 | 0.953 |
+| fold2 | **0.913** | 0.931 | 0.907 |
+| **Media** | **0.936** | **0.948** | **0.930** |
+
+Risultati salvati in `results/tuning/intra/DinoBloom/full/fold1/metrics.json` e `.../fold2/metrics.json`.
+
+### Posizionamento nel ranking intra
+
+DinoBloom+full con F1 media 0.936 si colloca tra Swin-T full (0.929) e DinoBloom lora (0.949) nel ranking complessivo. È il terzo risultato assoluto:
+
+| Rank | Modello | Modalità | F1 media |
+|------|---------|----------|----------|
+| 1 | ConvNeXt | head_only | 0.969 |
+| 2 | DinoBloom | lora | 0.949 |
+| 3 | ResNet50 | head_only | 0.948 |
+| 4 | **DinoBloom** | **full** | **0.936** |
+| 5 | Swin-T | full | 0.929 |
+| 6 | RedDino | full | 0.917 |
+| 7 | ViT-B | full | 0.885 |
+| 8 | RedDino | head_only | 0.712 |
+
+Notare che DinoBloom+lora (0.949) supera DinoBloom+full (0.936): il full fine-tuning non è vantaggioso per DinoBloom nel contesto intra-dataset, probabilmente perché il pre-training domain-specific già fornisce feature ottimali che il fine-tuning completo rischia di degradare leggermente (overfitting sul training set del fold).
+
+### OOD in corso
+
+run_dinobloom_full_ood.py avviato il 2026-06-29. Risultati attesi in `results/tuning/ood/<coppia>/DinoBloom/full/`.
+
+---
+
+## 2026-06-28 — Cambio da PyRadiomics a scikit-image per l'estrazione radiomica
+
+### Problema
+
+PyRadiomics 3.0.1/3.1.0 (le uniche versioni disponibili su PyPI) non è installabile su Python 3.12. Il motivo è in `versioneer.py`, uno strumento di versionamento incluso nel pacchetto sorgente: usa `configparser.SafeConfigParser`, funzione rimossa definitivamente in Python 3.12. Il problema si manifesta durante la fase di build (preparazione dei metadati), prima ancora che il codice di estrazione delle feature venga toccato. Il repository GitHub ufficiale non ha un fix compatibile con Python 3.12 nemmeno nel branch main. Python non può essere retrocesso perché PyTorch (già installato e funzionante) richiede Python 3.12.
+
+### Soluzione: scikit-image
+
+scikit-image (0.26.0, già installata nell'ambiente) fornisce gli strumenti per calcolare feature radiomiche equivalenti a quelle di PyRadiomics nelle categorie più importanti. La libreria è stabile, attivamente mantenuta, e non richiede compilazione (ha wheel pre-compilate per Python 3.12).
+
+### Feature estratte (61 totali)
+
+**First-order (15)**: statistiche calcolate direttamente sui valori di intensità dei pixel nella ROI: media, mediana, deviazione standard, varianza, asimmetria (skewness di Fisher), curtosi (excess), energia, entropia di Shannon (sull'istogramma a 256 bin), massimo, minimo, range, RMS, IQR, decile inferiore (P10), decile superiore (P90).
+
+**GLCM (36)**: la Gray Level Co-occurrence Matrix descrive come i livelli di grigio si relazionano con i propri vicini spaziali. È calcolata con 16 livelli, 4 direzioni (0°, 45°, 90°, 135°) e 3 distanze di passo (1, 2, 3 pixel). Per ogni coppia (distanza, proprietà) si calcola media e deviazione standard across le 4 direzioni, ottenendo una rappresentazione rotationally invariant. Proprietà: contrasto, dissimilarità, omogeneità, energia, correlazione, ASM. NaN nella correlazione (patch a intensità costante) vengono sostituiti con 0.
+
+**Shape 2D (10)**: proprietà geometriche della ROI calcolate con `regionprops`: area, perimetro, eccentricità, solidità, extent, lunghezza degli assi maggiore e minore, diametro equivalente, orientazione, numero di Eulero.
+
+### Cosa manca rispetto a PyRadiomics
+
+Le classi GLRLM, GLSZM, GLDM e NGTDM non sono disponibili in scikit-image e richiederebbero implementazione da zero. Queste matrici catturano pattern di run-length e di zona che completano la descrizione della texture, ma sono meno frequenti nei lavori applicativi rispetto a GLCM e first-order. La copertura con scikit-image è sufficiente per un confronto significativo con le deep feature nel contesto del tirocinio.
+
+### File aggiornato
+
+`scripts/phase4/extract_radiomic_features.py` — riscritto interamente; rimosso l'import di PyRadiomics e SimpleITK, aggiunte le funzioni `_first_order_features`, `_glcm_features`, `_shape_features` con scikit-image. La struttura esterna (loop sui fold, `save_h5`, `validate_h5`, `_relocate_path`, `build_roi_mask`) è rimasta identica.

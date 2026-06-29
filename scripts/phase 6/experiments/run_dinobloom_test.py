@@ -1,4 +1,4 @@
-"""Test isolato DinoBloom head_only: verifica che batch=4 a 518px stia nei 6GB di VRAM."""
+"""Test isolato DinoBloom full: verifica che full fine-tuning a 518px stia nei 6GB di VRAM."""
 
 import sys
 from pathlib import Path
@@ -16,7 +16,7 @@ from training.losses import get_loss_function
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 model_name = "DinoBloom"
-mode = "head_only"
+mode = "full"
 fold = 1
 
 cfg = MODEL_CONFIG[model_name]
@@ -48,6 +48,7 @@ model.to(DEVICE)
 
 if DEVICE == "cuda":
     print(f"VRAM dopo caricamento modello: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
+    torch.cuda.reset_peak_memory_stats()
 
 output_dir = OUTPUT_DIR / "dinobloom_test" / model_name / mode / f"fold{fold}"
 output_dir.mkdir(parents=True, exist_ok=True)

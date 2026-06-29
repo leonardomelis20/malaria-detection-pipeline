@@ -108,7 +108,7 @@ def train_model(model, train_loader, val_loader, loss_fn, device, save_path, num
             {"params": model.head.parameters(), "lr": LEARNING_RT_HEAD}
         ], weight_decay=WEIGHT_DECAY)
 
-    early_stopping = EarlyStopping(patience=EARLY_STOPPING_PATIENCE, min_delta=0.0)#?
+    early_stopping = EarlyStopping(patience=EARLY_STOPPING_PATIENCE, min_delta=1e-4)
 
     best_val_loss = float("inf")
     history = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
