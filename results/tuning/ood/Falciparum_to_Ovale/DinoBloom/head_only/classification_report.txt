@@ -1,0 +1,10 @@
+              precision    recall  f1-score   support
+
+  Falciparum       0.00      0.00      0.00         0
+       Vivax       0.00      0.00      0.00         0
+       Ovale       1.00      0.10      0.18        10
+    Malariae       0.00      0.00      0.00         0
+
+    accuracy                           0.10        10
+   macro avg       0.25      0.03      0.05        10
+weighted avg       1.00      0.10      0.18        10

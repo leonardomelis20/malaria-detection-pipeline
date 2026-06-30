@@ -1,0 +1,7 @@
+{
+    "accuracy": 0.7586206896551724,
+    "f1_macro": 0.727579365079365,
+    "mcc": 0.6750463278275068,
+    "model_name": "ViT-B",
+    "fine_tune_mode": "head_only"
+}
