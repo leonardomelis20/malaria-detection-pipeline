@@ -478,9 +478,40 @@ DinoBloom+full con F1 media 0.936 si colloca tra Swin-T full (0.929) e DinoBloom
 
 Notare che DinoBloom+lora (0.949) supera DinoBloom+full (0.936): il full fine-tuning non è vantaggioso per DinoBloom nel contesto intra-dataset, probabilmente perché il pre-training domain-specific già fornisce feature ottimali che il fine-tuning completo rischia di degradare leggermente (overfitting sul training set del fold).
 
-### OOD in corso
+### Risultati OOD DinoBloom+full (completati 2026-06-30)
 
-run_dinobloom_full_ood.py avviato il 2026-06-29. Risultati attesi in `results/tuning/ood/<coppia>/DinoBloom/full/`.
+Tutte e 9 le coppie: **F1 macro = 0.000, accuracy = 0.000, MCC = 0.000**.
+
+| Coppia | F1 macro |
+|--------|----------|
+| Falciparum → Vivax | 0.0 |
+| Falciparum → Ovale | 0.0 |
+| Falciparum → Malariae | 0.0 |
+| Vivax → Falciparum | 0.0 |
+| Vivax → Ovale | 0.0 |
+| Vivax → Malariae | 0.0 |
+| Ovale → Falciparum | 0.0 |
+| Ovale → Vivax | 0.0 |
+| Ovale → Malariae | 0.0 |
+
+### Interpretazione OOD DinoBloom per modalità
+
+Confrontando le tre modalità di DinoBloom in OOD si ottiene un gradiente netto:
+
+| Modalità | F1 media (9 coppie) | Run non-zero |
+|----------|---------------------|--------------|
+| head_only | 0.0130 | 2/9 |
+| lora | 0.0089 | 1/9 |
+| **full** | **0.0000** | **0/9** |
+
+Il pattern è coerente con la teoria: più si modificano i pesi del backbone DinoBloom, meno rimane della generalizzazione cross-specie acquisita durante il pre-training su microscopia malarica. Con head_only il backbone è completamente frozen e le sue feature universali restano intatte. Con LoRA si modificano solo le matrici di attenzione ma il resto del backbone è preservato. Con full fine-tuning tutti gli 86 milioni di parametri vengono sovraiscritti per classificare immagini di una sola specie sorgente: il risultato è un modello che ha "dimenticato" le feature domain-specific acquisite durante il pre-training e si comporta esattamente come i modelli ImageNet-pretrained — F1=0 su tutte le coppie.
+
+Questo rafforza la conclusione già emersa per il ranking intra: il pre-training domain-specific di DinoBloom ha valore, ma va preservato (head_only o LoRA), non sovrascritto.
+
+### Stato finale Fase 6: tutti gli esperimenti completati
+
+- Loop intra: **32/32 run** (30 originali + 2 DinoBloom+full)
+- Loop OOD: **144/144 run** (135 originali + 9 DinoBloom+full)
 
 ---
 
