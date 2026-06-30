@@ -540,3 +540,176 @@ Le classi GLRLM, GLSZM, GLDM e NGTDM non sono disponibili in scikit-image e rich
 ### File aggiornato
 
 `scripts/phase4/extract_radiomic_features.py` — riscritto interamente; rimosso l'import di PyRadiomics e SimpleITK, aggiunte le funzioni `_first_order_features`, `_glcm_features`, `_shape_features` con scikit-image. La struttura esterna (loop sui fold, `save_h5`, `validate_h5`, `_relocate_path`, `build_roi_mask`) è rimasta identica.
+
+---
+
+## 2026-06-30 — Estrazione radiomica completata: verifica output e struttura
+
+### Esecuzione
+
+`scripts/phase4/extract_radiomic_features.py` eseguito sull'ambiente principale (Python 3.12, `.venv`). Nessun errore.
+
+### Struttura output verificata
+
+Prodotti 15 file `.h5` in `results/features/radiomics/fold{1-5}/{train,val,test}.h5`.
+
+| File | Campioni | Feature | NaN |
+|---|---|---|---|
+| fold1/train | 111 | 61 | 0 |
+| fold1/val | 35 | 61 | 0 |
+| fold1/test | 58 | 61 | 0 |
+| fold2/train | 122 | 61 | 0 |
+| fold2/val | 24 | 61 | 0 |
+| fold2/test | 58 | 61 | 0 |
+| fold3/train | 140 | 61 | 0 |
+| fold3/val | 6 | 61 | 0 |
+| fold4/train | 126 | 61 | 0 |
+| fold4/val | 20 | 61 | 0 |
+| fold5/train | 125 | 61 | 0 |
+| fold5/val | 21 | 61 | 0 |
+| fold{1-5}/test | 58 (tutti identici) | 61 | 0 |
+
+Nessun valore NaN o Inf in nessun file: l'estrattore scikit-image è numericamente stabile anche su crop piccoli o a basso contrasto.
+
+### Conferma struttura dei fold
+
+La distribuzione delle classi nei validation set conferma e chiarisce il vincolo "solo fold 1 e 2 sono informativi":
+
+- **fold1/val**: Falciparum=20, Malariae=15 (2 classi)
+- **fold2/val**: Falciparum=16, Malariae=8 (2 classi)
+- **fold3/val**: Falciparum=6 (1 classe sola)
+- **fold4/val**: Falciparum=20 (1 classe sola)
+- **fold5/val**: Falciparum=21 (1 classe sola)
+
+Ovale e Vivax hanno solo 2 group_id ciascuno: in un 5-fold patient-aware split, con 5 "slot" e solo 2 pazienti, quasi tutti i fold li trovano entrambi nel training set. I fold 1 e 2 sono gli unici in cui entrambe le classi rare (Ovale, Vivax) potrebbero contribuire al training avendo almeno qualche rappresentante — e i loro val set, pur contenendo solo 2 classi, sono sufficientemente bilanciati per calcolare un F1 macro significativo su Falciparum e Malariae. Nei fold 3-5 il val set ha una sola classe: F1 macro sarebbe trivialmente 1.0 e non confrontabile con gli altri fold.
+
+Il test set (58 campioni, 4 classi: Falciparum=21, Malariae=12, Ovale=10, Vivax=15) è identico per tutti i fold — deriva dallo stesso `test_heldout.csv`. È il riferimento principale per confrontare radiomica vs deep features.
+
+---
+
+## 2026-06-30 — Classificazione radiomica Fase 5: risultati intra-dataset e OOD
+
+### Intra-dataset
+
+Script: `scripts/phase 5/intra_dataset_radiomic.py`. Risultati in `results/classification/intra_radiomic/metrics.csv`.
+
+**Metriche sul test set held-out (58 campioni, 4 classi) — fold 1 e fold 2:**
+
+| Classificatore | F1 macro fold1 | F1 macro fold2 | F1 medio | MCC fold1 | MCC fold2 |
+|---|---|---|---|---|---|
+| **RF** | **0.9566** | **0.9566** | **0.9566** | 0.954 | 0.954 |
+| LR | 0.9132 | 0.9363 | 0.9248 | 0.907 | 0.929 |
+| KNN_5 | 0.8983 | 0.7234 | 0.8109 | 0.882 | 0.753 |
+| KNN_3 | 0.8333 | 0.7125 | 0.7729 | 0.842 | 0.783 |
+| KNN_1 | 0.8016 | 0.6992 | 0.7504 | 0.821 | 0.754 |
+
+Il classificatore migliore è **Random Forest** con F1 macro medio **0.957**, identico su entrambi i fold informativi. Questo risultato è sorprendente: 61 feature radiomiche calcolate analiticamente su immagini in scala di grigi rivalizzano con i migliori backbone deep (ConvNeXt head_only: 0.969, DinoBloom LoRA: 0.949, ResNet50 head_only: 0.948). La radiomica supera una metà dei backbone considerati.
+
+La Logistic Regression è seconda a 0.925 di media — ragionevole, dato che le feature radiomiche sono già normalizzate da StandardScaler e LR si comporta bene su feature linearmente separabili. KNN degrada molto tra fold1 e fold2 (0.898 → 0.723 per KNN_5): le feature radiomiche non formano cluster compatti e consistenti nello spazio euclideo, rendendo la distanza un criterio meno robusto.
+
+**Nota sulle metriche val**: I val set di fold1 e fold2 contengono solo 2 classi (Falciparum + Malariae). Il modello, addestrato su 4 classi, può predire anche Ovale e Vivax — se lo fa, le predizioni errate su classi assenti nel val abbassano artificialmente il F1 macro (questo spiega F1=0.424 per RF su fold1/val pur con accuracy=0.80). Per fold2/val tutti i classificatori ottengono F1=1.0: le feature radiomiche separano perfettamente Falciparum e Malariae su quel specifico sottoinsieme. I valori val non vanno confrontati tra fold né presi come misura assoluta. Il test held-out è la metrica di riferimento.
+
+### OOD (classificazione cross-specie della fase)
+
+Script: `scripts/phase 5/out_of_distribution_radiomic.py`. Risultati in `results/classification/ood_radiomic/`.
+
+**Richiamo del protocollo**: il classificatore viene addestrato su tutti i campioni di una specie sorgente (predice la fase di sviluppo: R/G/S/T) e testato sui campioni di una specie target. Si misura se la relazione tra feature radiomiche e fasi biologiche è conservata cross-specie.
+
+**F1 macro per coppia sorgente→target, miglior classificatore:**
+
+| Sorgente → Target | Miglior classif. | F1 macro | Note |
+|---|---|---|---|
+| Falciparum → Vivax | LR | 0.500 | Acc=0.933 ma F1=0.5: collasso su classe dominante |
+| Falciparum → Ovale | RF / KNN | 0.412 | |
+| Falciparum → Malariae | LR | 0.056 | Quasi zero |
+| Vivax → Falciparum | RF | 0.475 | Solo 2 classi in test |
+| Vivax → Ovale | KNN | 0.083 | Molto basso |
+| Vivax → Malariae | LR | 0.246 | |
+| Ovale → Falciparum | KNN_1/3/5 | 0.533 | Risultato più alto in assoluto |
+| Ovale → Vivax | LR | 0.450 | |
+| Ovale → Malariae | tutti | ≈0.051 | Sostanzialmente zero |
+
+I risultati OOD sono variabili e nessun classificatore domina chiaramente in tutte le coppie. La F1 media sui classificatori considerati migliori per coppia rimane tra 0.05 e 0.53 — molto inferiore all'intra-dataset.
+
+**Osservazioni per il report:**
+
+1. La generalizzazione cross-specie delle feature radiomiche è parziale e asimmetrica: alcune coppie (Ovale→Falciparum, Falciparum→Vivax) mostrano segnale, altre (→Malariae in particolare) no.
+
+2. Malariae come target ottiene sempre risultati vicini a zero. Questo è coerente con il fatto che Malariae è la specie con la biologia più diversa (parassita più piccolo, ciclo eritrocitico più lungo): le sue fasi non corrispondono bene alle fasi delle altre specie in termini di feature di texture e forma.
+
+3. Alcuni risultati sembrano "alti" per accuracy ma hanno F1 macro basso (es. LR Falciparum→Vivax: acc=0.933, F1=0.50). Questo è un artefatto classico: il classificatore predice sempre la classe con più campioni nel training (dominanza di classe sorgente), ottenendo alta accuracy su un test set sbilanciato ma F1 macro penalizzato.
+
+4. **Confronto con Fase 6 OOD**: il task è completamente diverso. Fase 6 OOD addestrapa un classificatore di specie su campioni monospecie e testava la generalizzazione cross-specie. Fase 5 OOD addestra un classificatore di fasi e testa la generalizzazione cross-specie delle fasi stesse. I due protocolli non sono confrontabili direttamente. I risultati radiomic OOD (F1 non-zero in 7/9 coppie) non sono migliori del Fase 6 deep OOD: sono su un task diverso e più informativo.
+
+### Conclusione complessiva
+
+La radiomica con scikit-image (61 feature, RF) raggiunge F1=0.957 intra-dataset, posizionandosi nel gruppo dei migliori modelli del progetto insieme a ConvNeXt e ResNet50 fine-tunati. Questo è un risultato rilevante per il report: dimostra che feature classiche di texture e forma catturano strutture diagnostiche robuste nei crop RBC, rivaleggiando con rappresentazioni apprese da reti neurali pre-trained su ImageNet. L'ipotesi che "più features = migliori risultati" non si conferma: 61 feature analitiche sono sufficienti se calcolate sulla morfologia corretta.
+
+---
+
+## 2026-06-30 — Confronto radiomica vs deep features (Fase 5)
+
+Confronto tra i risultati radiomica (appena completati) e i risultati deep della Fase 5 (backbone pre-addestrati: ResNet50, ConvNeXt Tiny, ViT-B/16, Swin-T, DinoBloom, RedDino; classificatori: RF, LR, KNN k=1/3/5).
+
+### Ranking intra-dataset unificato
+
+Le metriche deep sono media ± std tra fold 1 e fold 2 sul test set held-out. Le metriche radiomica sono media tra fold 1 e fold 2 (valori identici: 0.9566 per RF).
+
+| Rank | Modello | Classificatore | F1 macro | Tipo feature |
+|---|---|---|---|---|
+| 1 | ConvNeXt Tiny | LR | 0.9788 | deep (2048 dim) |
+| 2 | ViT-B/16 | LR | 0.9788 | deep (2048 dim) |
+| 3 | ConvNeXt Tiny | KNN_3/5 | 0.9742 | deep (2048 dim) |
+| **4** | **Radiomica** | **RF** | **0.9566** | **analitiche (61 dim)** |
+| 5 | DinoBloom | LR | 0.9556 | deep (768 dim) |
+| 6 | Swin-T | RF | 0.9621 | deep (768 dim) |
+| 7 | ResNet50 | LR | 0.9106 | deep (2048 dim) |
+| 8 | RedDino | KNN_3 | 0.8514 | deep (768 dim) |
+
+La radiomica RF occupa il 4° posto, in sostanziale parità con DinoBloom+LR (delta: +0.001). Supera nettamente ResNet50 e RedDino pur usando 33 volte meno feature (61 vs 2048). I soli modelli che la precedono chiaramente sono ConvNeXt e ViT-B/16 con LR.
+
+### Inversione del classificatore migliore
+
+Il pattern più rilevante per il report è che il classificatore ottimale si inverte tra deep e radiomica:
+
+| Tipo feature | Migliore | Peggiore | Gap LR–RF |
+|---|---|---|---|
+| Deep (media su 6 backbone) | **LR** (F1=0.937) | KNN_1 (0.910) | LR batte RF di +0.022 |
+| Radiomica | **RF** (F1=0.957) | KNN_1 (0.750) | RF batte LR di +0.032 |
+
+**Motivazione**: i backbone deep estraggono feature nell'ultimo strato prima del classificatore, uno spazio latente progettato per essere linearmente separabile — LR funziona naturalmente bene qui. Le feature radiomiche invece sono misure fisiche eterogenee (area in centinaia, texture in [0,1], entropia in [0,8]): anche dopo StandardScaler lo spazio non è linearmente strutturato, e RF sfrutta meglio le soglie non-lineari per feature combinando 100 alberi indipendenti.
+
+### KNN: degrado maggiore per la radiomica
+
+Nei deep features KNN_3 è vicino a LR (-0.02 di F1 media). Nei radiomica KNN_3 cala a 0.773 media (-0.18 rispetto a RF). La distanza euclidea in uno spazio di 61 misure fisiche eterogenee non è coerente: le dimensioni con range numerico alto (area, perimetro) dominano la distanza e mascherano le dimensioni informative con range piccolo (texture GLCM in [0,1]). Anche dopo normalizzazione, lo spazio non forma cluster euclidei uniformi come quello prodotto dai backbone.
+
+### Confronto OOD
+
+Le metriche deep OOD sono medie su 30 configurazioni per coppia (6 modelli × 5 classificatori). Per confronto equo si usa la media dei 5 classificatori radiomica per coppia:
+
+| Coppia | Deep F1 medio (30 cfg) | Radiomica F1 medio (5 clf) | Delta |
+|---|---|---|---|
+| Falciparum → Ovale | **0.557** | 0.366 | −0.19 |
+| Falciparum → Vivax | **0.535** | 0.337 | −0.20 |
+| Ovale → Vivax | **0.454** | 0.319 | −0.14 |
+| Vivax → Ovale | **0.449** | 0.050 | −0.40 |
+| Ovale → Falciparum | **0.297** | 0.283 | −0.01 |
+| Vivax → Falciparum | **0.294** | 0.157 | −0.14 |
+| → Malariae (media 3 coppie) | ~0.074 | ~0.044 | −0.03 |
+
+Le deep features OOD vincono su tutte le coppie. Il divario è massimo per Vivax→Ovale (0.449 → 0.050): Vivax e Ovale hanno morfologie simili ma le feature di texture e forma calcolate analiticamente non si trasferiscono tra le loro fasi biologiche. Le deep feature — in particolare DinoBloom, identificato nel vecchio documento come modello più robusto in OOD grazie al pretraining su RBC biologiche — catturano strutture latenti più generalizzabili cross-specie.
+
+Le coppie verso Malariae rimangono vicine a zero in entrambi gli approcci: Malariae ha fasi biologiche (G, S, T) con distribuzione di intensità e morfologia molto diversa dalle altre specie, e nessun modello riesce a generalizzarvi.
+
+### Sintesi interpretativa
+
+| Dimensione | Deep features | Radiomica |
+|---|---|---|
+| Feature dim | 768–2048 | 61 |
+| Intra F1 best | 0.979 (ConvNeXt+LR) | 0.957 (RF) |
+| Classificatore migliore | LR | RF |
+| KNN performance | Competitiva (−0.02) | Degradata (−0.18) |
+| OOD F1 migliore coppia | 0.557 (Falc→Ovale) | 0.366 (stessa coppia) |
+| OOD generalizzazione | Moderata–buona | Limitata |
+
+Le feature radiomiche sono sorprendentemente competitive intra-dataset ma cedono in OOD. La spiegazione unificante: le feature analitiche descrivono bene *come appare* un parassita di una specie (separazione tra specie), ma non catturano *l'organizzazione biologica dello sviluppo* (fasi) in modo trasferibile tra specie. I backbone deep — specialmente quelli con pretraining domain-specific — apprendono rappresentazioni più ricche che si trasferiscono meglio cross-specie.

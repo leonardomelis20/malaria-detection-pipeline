@@ -4,6 +4,8 @@ __pycache__/
 .cache/
 results/*
 !results/tuning/
+!results/classification/
+!results/features/
 *.h5
 *.pt
 *.pth
