@@ -1,7 +1,0 @@
-{
-    "accuracy": 0.9137931034482759,
-    "f1_macro": 0.9035798583792289,
-    "mcc": 0.882474374113845,
-    "model_name": "ResNet50",
-    "fine_tune_mode": "full"
-}

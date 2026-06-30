@@ -1,7 +1,0 @@
-{
-    "accuracy": 0.7758620689655172,
-    "f1_macro": 0.7476532567049807,
-    "mcc": 0.697336989572648,
-    "model_name": "ViT-B",
-    "fine_tune_mode": "lora"
-}

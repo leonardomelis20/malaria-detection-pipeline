@@ -1,7 +1,0 @@
-{
-    "accuracy": 0.9310344827586207,
-    "f1_macro": 0.9188311688311689,
-    "mcc": 0.9073197719248105,
-    "model_name": "Swin-T",
-    "fine_tune_mode": "head_only"
-}
