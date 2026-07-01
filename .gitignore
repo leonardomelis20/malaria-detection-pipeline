@@ -1,11 +1,7 @@
-.venv/
+﻿.venv/
 __pycache__/
 *.pyc
 .cache/
-results/*
-!results/tuning/
-!results/classification/
-!results/features/
 *.h5
 *.pt
 *.pth

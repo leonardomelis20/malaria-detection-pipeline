@@ -1,0 +1,5 @@
+augmentation,mean_val_accuracy,std_val_accuracy,mean_val_macro_f1,std_val_macro_f1,mean_val_balanced_accuracy,std_val_balanced_accuracy
+geo_noise_light,0.6307692307692307,0.3428618389835237,0.4726282051282052,0.3595127887381368,0.6905555555555556,0.2776916533153052
+
+
+"""Vivax non viene mai predetto correttamente. Ovale mostra 19 campioni classificati come Malariae"

@@ -1,0 +1,2 @@
+augmentation,mean_val_accuracy,std_val_accuracy,mean_val_macro_f1,std_val_macro_f1,mean_val_balanced_accuracy,std_val_balanced_accuracy
+geo_color_light,0.9688095238095238,0.006397632782164026,0.9646274825779833,0.0028576235229350547,0.9583333333333334,0.011785113019775906

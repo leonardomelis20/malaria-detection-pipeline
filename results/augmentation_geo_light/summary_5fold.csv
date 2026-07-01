@@ -1,0 +1,2 @@
+augmentation,mean_val_accuracy,std_val_accuracy,mean_val_macro_f1,std_val_macro_f1,mean_val_balanced_accuracy,std_val_balanced_accuracy
+geo_light,0.6504957264957264,0.3550481274282521,0.5062885261307,0.35604684256237273,0.6948333333333332,0.292507431969893

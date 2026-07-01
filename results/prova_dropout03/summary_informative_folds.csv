@@ -1,0 +1,2 @@
+augmentation,folds_included,mean_val_accuracy,std_val_accuracy,mean_val_macro_f1,std_val_macro_f1,mean_val_balanced_accuracy,std_val_balanced_accuracy
+geo_color_light,"[1, 2]",0.9620253164556962,0.053704312495180796,0.9544642857142858,0.06439722471520344,0.9535087719298245,0.06574852526822281

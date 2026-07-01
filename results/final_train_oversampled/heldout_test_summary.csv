@@ -1,0 +1,2 @@
+test_accuracy,test_macro_f1,test_balanced_accuracy,n_test_samples
+0.7413793103448276,0.5988511182819628,0.6458333333333334,58

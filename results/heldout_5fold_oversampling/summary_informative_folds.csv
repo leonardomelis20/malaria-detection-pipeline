@@ -1,0 +1,2 @@
+augmentation,folds_included,mean_val_accuracy,std_val_accuracy,mean_val_macro_f1,std_val_macro_f1,mean_val_balanced_accuracy,std_val_balanced_accuracy
+oversampling_square_symmetry_elastic,"[1, 2, 3, 4, 5]",0.9771428571428572,0.05111012519999522,0.923076923076923,0.17200522903844534,0.9733333333333334,0.059628479399994376
