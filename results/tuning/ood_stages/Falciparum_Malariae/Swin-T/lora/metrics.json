@@ -1,0 +1,7 @@
+{
+    "accuracy": 0.16666666666666666,
+    "f1_macro": 0.07692307692307693,
+    "mcc": -0.2401922307076307,
+    "model_name": "Swin-T",
+    "fine_tune_mode": "lora"
+}

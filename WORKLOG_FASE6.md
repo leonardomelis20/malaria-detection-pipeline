@@ -713,3 +713,178 @@ Le coppie verso Malariae rimangono vicine a zero in entrambi gli approcci: Malar
 | OOD generalizzazione | Moderata–buona | Limitata |
 
 Le feature radiomiche sono sorprendentemente competitive intra-dataset ma cedono in OOD. La spiegazione unificante: le feature analitiche descrivono bene *come appare* un parassita di una specie (separazione tra specie), ma non catturano *l'organizzazione biologica dello sviluppo* (fasi) in modo trasferibile tra specie. I backbone deep — specialmente quelli con pretraining domain-specific — apprendono rappresentazioni più ricche che si trasferiscono meglio cross-specie.
+
+---
+
+## 2026-07-02 — Protocollo LOSO e limitazione strutturale del validation set
+
+### Contesto
+
+È stato implementato il protocollo Leave-One-Species-Out (LOSO) in `scripts/phase 6/experiments/run_ood_loso.py`. Per ogni specie target T: il modello viene allenato su fold1_train + fold2_train con T esclusa, validato su fold1_val + fold2_val con T esclusa, e testato esclusivamente sui campioni di T presenti nel test heldout. Il label space rimane sempre a 4 classi (SPECIES_TO_ID invariato): la specie target semplicemente non appare in training né in validation.
+
+### Risultati attesi e osservati
+
+I primi 25 run completati (15 con target=Falciparum, 10 con target=Vivax) mostrano tutti `accuracy=0.0`, `f1_macro=0.0`, `mcc=0.0`. Il risultato non è un bug del codice di salvataggio: le metriche riflettono genuinamente il comportamento del modello sul test set. La spiegazione meccanica è la stessa già documentata per il loop OOD standard (2026-06-26): il modello addestrato senza la specie T non predice mai la classe T sul test set, perché nessun gradiente di training la rafforza e la softmax la sopprime attivamente. Tutti i campioni T vengono mappati su una delle tre classi note.
+
+Questo è il risultato scientifico atteso del protocollo LOSO e conferma che nessun modello testato mostra generalizzazione zero-shot alla specie non vista.
+
+### Limitazione strutturale: il validation set può essere mono-classe
+
+Ispezionando i dataset temporanei generati da `run_ood_loso.py` per LOSO Falciparum emerge un problema strutturale:
+
+| Dataset | Dimensione | Composizione |
+|---------|-----------|--------------|
+| Train | 103 | Vivax=50, Ovale=30, Malariae=23 |
+| Val | 23 | **solo Malariae** |
+| Test | 21 | solo Falciparum (per design) |
+
+Il validation set — ottenuto concatenando fold1_val e fold2_val ed escludendo Falciparum — contiene esclusivamente campioni Malariae. Questo è un artefatto dello split patient-aware già documentato al 2026-06-30: fold1/val e fold2/val contengono solo Falciparum e Malariae; dopo la rimozione di Falciparum in LOSO rimane solo Malariae.
+
+**Causa radice**: Ovale e Vivax hanno solo 2 group_id ciascuno nell'intero dataset. In uno split 5-fold patient-aware, con 5 slot disponibili e solo 2 pazienti per specie, Ovale e Vivax tendono a comparire entrambi nel training set dei fold 1 e 2 e non ad apparire nel validation set. Il vincolo "solo fold 1 e 2 informativi" era già stato identificato come conseguenza di questo sbilanciamento; in LOSO si aggiunge la rimozione di Falciparum (specie più numerosa), lasciando nel val set solo la porzione Malariae dei due fold.
+
+### Effetti sul training osservati
+
+Il val set mono-classe ha due conseguenze osservabili nella history:
+
+1. **`val_acc = 1.0` da epoca 1**: dopo la prima epoca di training il modello classifica già correttamente tutti i 23 campioni Malariae del validation set. Con un problema di fatto mono-classe, qualsiasi modello che assegni la maggior parte delle probabilità alla classe 1 ottiene accuracy perfetta. Questo nasconde informazioni sulla qualità di separazione delle altre due classi note (Ovale, Vivax) per cui il modello sta effettivamente imparando qualcosa nel training set.
+
+2. **`val_loss` che scende continuamente verso zero**: la early stopping è calibrata su `val_loss` con `patience=10` e `min_delta=1e-4`. Con un val set mono-classe, la loss scende monotonicamente man mano che il modello aumenta la confidenza su Malariae: il criterio di convergenza non viene mai soddisfatto e il modello gira tutte le 50 epoche. Il checkpoint salvato è quello che meglio predice Malariae, non necessariamente il miglior generalizzatore su Ovale e Vivax.
+
+**Confronto con target=Vivax**: quando si esclude Vivax (ID=3), il val set risulta più bilanciato (59 campioni con più classi, come mostrato dal terminale: `val_acc` parte da 0.58 a epoca 1 e sale a 1.0 in 6 epoche). Il problema è quindi specifico di LOSO Falciparum, dove la specie esclusa è la più numerosa e la sua assenza lascia un val set quasi vuoto di varietà.
+
+### Cosa non è compromesso
+
+La limitazione non altera i risultati sul test set. Il test per LOSO Falciparum contiene correttamente 21 campioni Falciparum e nessun altro. L'accuracy=0.0 è autentica: il modello mappa tutti e 21 i campioni Falciparum su classi note (Malariae, Ovale o Vivax) perché non ha mai ricevuto gradiente per predire la classe 0. Cambiare il checkpoint selezionato (scegliendo un'epoca diversa) non cambierebbe questo risultato: è la struttura dell'allenamento, non la scelta dell'epoca, a determinare l'incapacità di predire la classe esclusa.
+
+### Nota metodologica per il report
+
+Questa limitazione del protocollo LOSO va menzionata nella sezione "limitazioni" della tesi. Il validation set degenere è un artefatto inevitabile della combinazione tra:
+- Dataset piccolo con pochi pazienti per specie (Ovale e Vivax con solo 2 group_id)
+- Split patient-aware che esaurisce rapidamente i pazienti disponibili per le classi rare
+- Protocollo LOSO che rimuove un'ulteriore specie dal val set
+
+Una possibile alternativa per futuri lavori con più dati sarebbe uno split stratificato per specie e paziente, che garantisca almeno un campione per classe in ogni fold validation.
+
+---
+
+## 2026-07-04 — Protocollo OOD sugli stadi del ciclo cellulare (label space condiviso)
+
+### Contesto e motivazione
+
+I due protocolli OOD di Fase 6 basati sulla specie come label (`run_ood.py` e `run_ood_loso.py`, vedi 2026-06-26 e 2026-07-02) producono F1=0 per costruzione: il label space (specie) non è condiviso tra training e test, quindi qualunque classificatore addestrato su una specie sorgente non ha mai un gradiente che lo spinga a predire la specie target.
+
+La Fase 5 aveva già risolto questo problema per la classificazione classica (`out_of_distribution.py`): invece di classificare la specie, il classificatore viene addestrato a riconoscere lo **stadio del ciclo cellulare** (R=ring, G=gametocyte, S=schizont, T=trophozoite), che è biologicamente condiviso tra tutte le specie di plasmodio. Questo stesso protocollo è stato ora implementato per il fine-tuning end-to-end in `scripts/phase 6/experiments/run_ood_stages.py` (nuovo file, nessun file esistente modificato).
+
+### Verifica preliminare della distribuzione degli stadi
+
+Prima di scrivere il loop, è stata analizzata la distribuzione di R/G/S/T per specie su fold1_train+fold2_train:
+
+| Specie | Totale | R | G | S | T |
+|---|---|---|---|---|---|
+| Falciparum | 130 | 106 | 10 | 11 | 3 |
+| Vivax | 50 | 28 | **0** | 16 | 6 |
+| Ovale | 30 | 4 | 6 | 2 | 18 |
+| Malariae | 23 | **0** | 6 | 5 | 12 |
+
+Vivax non ha campioni di gametocita in training; Malariae non ha campioni di ring — coerente con l'indicazione di escludere Malariae come sorgente.
+
+### Blocco strutturale: Vivax e Ovale non hanno validation set
+
+Un controllo su `fold_1_val.csv` e `fold_2_val.csv` ha rivelato che Ovale e Vivax hanno **zero campioni** in validation, per qualunque fold (1-5). Causa: entrambe le specie hanno un solo `group_id` nell'intero dataset (non due, come riportato in `CLAUDE.md` — verificato direttamente sui CSV), e con uno split patient-aware un singolo gruppo non può mai essere diviso tra train e val nello stesso fold. Usare Vivax o Ovale come sorgente avrebbe lasciato il `val_loader` vuoto, rompendo l'early stopping.
+
+**Decisione (concordata con l'utente)**: il protocollo usa **solo Falciparum come specie sorgente** — è l'unica con tutti e 4 gli stadi presenti in training e con un validation set reale (36 campioni in fold1_val+fold2_val). Le coppie testate sono Falciparum→Vivax, Falciparum→Ovale, Falciparum→Malariae (invece delle 9 coppie originariamente ipotizzate).
+
+### Implementazione
+
+`run_ood_stages.py` replica la struttura di `run_ood_loso.py` (stesso resume mechanism, stessi skip guard per LoRA/DinoBloom+full, stesso try/except per run). Le differenze:
+- Train/val: solo campioni della specie sorgente (Falciparum) da fold1/fold2, non l'esclusione di una specie
+- Le colonne `label` dei DataFrame filtrati vengono sovrascritte con la colonna `phase` (`df["label"] = df["phase"]`), mantenendo `phase` intatta per il check di validazione di `MalariaDataset`, poi passate con `label_to_id=STAGE_TO_ID={"R":0,"G":1,"S":2,"T":3}`
+- `evaluate.py` non è stato toccato (la sua `save_results` ha `SPECIES` hardcodato negli assi della confusion matrix): è stata scritta una funzione locale `save_stage_results` che replica la stessa logica con `class_names=["R","G","S","T"]`
+
+### Bug riscontrato al primo avvio: UnicodeEncodeError
+
+Il primo tentativo di esecuzione ha fallito istantaneamente su tutte le 45 combinazioni con `'charmap' codec can't encode character '→'` — la console/log di Windows usa cp1252, che non include il carattere freccia `→` usato nella stringa di stampa `f"...{source} → {target}..."`. Il crash avveniva dentro il blocco `try/except` della funzione (dopo il check di skip ma prima del training), quindi nessun run ha effettivamente allenato nulla nel primo tentativo — solo le cartelle di output sono state pre-create da `output_dir.mkdir()` (che avviene prima del print). Fix: sostituito `→` con `->` nella stringa di stampa. Nessun altro carattere non-ASCII nel file causa problemi (verificato che gli accenti italiani e la lineetta em `—` sono codificabili in cp1252).
+
+### Esecuzione: 3 interruzioni, tutte recuperate dal resume mechanism
+
+Il loop da 45 run è stato interrotto tre volte durante l'esecuzione (una volta per sospensione del sistema overnight, due volte per interruzioni di corrente) e ripreso ogni volta senza perdita di risultati, grazie allo skip-if-`metrics.json`-exists già presente. In ogni ripresa, l'unica run persa era quella in corso al momento dell'interruzione (mai i risultati già salvati). Il file di log (`run_ood_stages.log`) è stato scritto con `python -u` (stdout non bufferizzato) dopo la prima ripresa, per evitare che il buffering di Python ritardasse la scrittura su disco rispetto al calcolo effettivo (osservato nella prima interruzione: il log su disco mostrava un run indietro rispetto a 2 run realmente completate, perché i `print()` erano bufferizzati mentre i file `metrics.json`/`history.json` venivano scritti con `json.dump` e quindi flushati subito).
+
+### Risultati (45/45 run completate)
+
+F1 macro sugli stadi (R/G/S/T), test held-out sulla specie target:
+
+**Falciparum → Vivax** (media F1 = 0.3157, nessuna run a zero):
+
+| Modello | Modalità | F1 macro | Accuracy | MCC |
+|---|---|---|---|---|
+| RedDino | full | **0.4651** | 0.7333 | 0.5787 |
+| DinoBloom | head_only | 0.4271 | 0.6667 | 0.5176 |
+| Swin-T | head_only | 0.4167 | 0.5333 | 0.2584 |
+| Swin-T | full | 0.3980 | 0.7333 | 0.5087 |
+| ResNet50 | head_only | 0.3712 | 0.6667 | 0.3957 |
+| Swin-T | lora | 0.3646 | 0.4667 | 0.2556 |
+| ConvNeXt | head_only | 0.3472 | 0.6000 | 0.4183 |
+| ConvNeXt | full | 0.3438 | 0.5333 | 0.4172 |
+| DinoBloom | lora | 0.3389 | 0.5333 | 0.4382 |
+| RedDino | lora | 0.2978 | 0.6000 | 0.4871 |
+| RedDino | head_only | 0.2556 | 0.4667 | 0.3555 |
+| ResNet50 | full | 0.1875 | 0.6000 | 0.0000 |
+| ViT-B | head_only | 0.1875 | 0.6000 | 0.0000 |
+| ViT-B | lora | 0.1875 | 0.6000 | 0.0000 |
+| ViT-B | full | 0.1471 | 0.3333 | −0.0160 |
+
+**Falciparum → Ovale** (media F1 = 0.2613, nessuna run a zero):
+
+| Modello | Modalità | F1 macro | Accuracy | MCC |
+|---|---|---|---|---|
+| DinoBloom | head_only | **0.4500** | 0.9000 | 0.7963 |
+| DinoBloom | lora | 0.4500 | 0.9000 | 0.7963 |
+| RedDino | lora | 0.3750 | 0.8000 | 0.6370 |
+| RedDino | head_only | 0.3558 | 0.7000 | 0.5250 |
+| Swin-T | full | 0.2923 | 0.6000 | 0.2431 |
+| Swin-T | lora | 0.2917 | 0.5000 | 0.2431 |
+| Swin-T | head_only | 0.2364 | 0.4000 | 0.1157 |
+| ResNet50 | head_only | 0.2188 | 0.7000 | 0.2546 |
+| ResNet50 | full | 0.2059 | 0.7000 | 0.0000 |
+| ViT-B | lora | 0.2059 | 0.7000 | 0.0000 |
+| ViT-B | head_only | 0.2059 | 0.7000 | 0.0000 |
+| ConvNeXt | full | 0.1875 | 0.6000 | −0.1091 |
+| ConvNeXt | head_only | 0.1667 | 0.4000 | 0.0980 |
+| ViT-B | full | 0.1667 | 0.4000 | 0.1091 |
+| RedDino | full | 0.1111 | 0.2000 | 0.1637 |
+
+**Falciparum → Malariae** (media F1 = 0.0918, **6/15 run a F1=0**):
+
+| Modello | Modalità | F1 macro | Accuracy | MCC |
+|---|---|---|---|---|
+| ResNet50 | full | 0.2500 | 0.0833 | 0.2655 |
+| ViT-B | full | 0.2197 | 0.3333 | 0.1110 |
+| RedDino | full | 0.1818 | 0.3333 | 0.2707 |
+| ConvNeXt | head_only | 0.1429 | 0.3333 | −0.0135 |
+| RedDino | head_only | 0.1364 | 0.2500 | 0.1083 |
+| RedDino | lora | 0.1364 | 0.2500 | 0.1083 |
+| ConvNeXt | full | 0.1333 | 0.3333 | −0.1132 |
+| DinoBloom | lora | 0.1000 | 0.0833 | 0.0513 |
+| Swin-T | lora | 0.0769 | 0.1667 | −0.2402 |
+| DinoBloom | head_only | 0.0000 | 0.0000 | −0.0241 |
+| ResNet50 | head_only | 0.0000 | 0.0000 | 0.0000 |
+| Swin-T | head_only | 0.0000 | 0.0000 | −0.3963 |
+| Swin-T | full | 0.0000 | 0.0000 | 0.0000 |
+| ViT-B | head_only | 0.0000 | 0.0000 | 0.0000 |
+| ViT-B | lora | 0.0000 | 0.0000 | 0.0000 |
+
+**F1 macro media complessiva sulle 45 run: 0.2229.**
+
+### Interpretazione
+
+Il protocollo produce F1 > 0 su 39/45 run, a differenza dei protocolli basati sulla specie che davano F1=0 su 141/144 e 0/25 (LOSO) run. Questo conferma l'ipotesi metodologica: lo stadio del ciclo cellulare è un label space effettivamente condiviso tra specie, e il fine-tuning end-to-end apprende una rappresentazione parzialmente trasferibile.
+
+**Falciparum→Malariae resta la coppia più debole** (6 run esattamente a zero), coerente con quanto già osservato in Fase 5 sia per le feature radiomiche (F1=0.056, "quasi zero") sia per le deep feature (F1≤0.172): Malariae ha una biologia più divergente (parassita più piccolo, ciclo eritrocitico più lungo) che rende le sue fasi meno sovrapponibili morfologicamente a quelle di Falciparum. Un'ipotesi plausibile per gli zeri esatti: Falciparum in training è fortemente sbilanciato verso lo stadio R (106/130 = 81.5%), e il test set di Malariae ha **zero campioni R** (R=0, G=1, S=4, T=7) — un collasso del modello sulla classe maggioritaria del training produrrebbe esattamente 0 predizioni corrette su quel test set, il che è coerente con MCC vicino a 0 o negativo in quelle run.
+
+**DinoBloom è il modello più forte o tra i più forti in 2 coppie su 3** (Falciparum→Vivax: head_only 0.427, secondo dopo RedDino full 0.465; Falciparum→Ovale: head_only e lora a pari merito 0.450, il massimo assoluto), confermando l'osservazione già fatta in Fase 5 e nel vecchio OOD di Fase 6 che il pretraining domain-specific su microscopia di sangue malarico offre un vantaggio nella generalizzazione cross-specie. Da notare che DinoBloom+head_only e DinoBloom+lora ottengono **valori identici** su Falciparum→Ovale (10 campioni di test): fenomeno già osservato per Swin-T in intra-dataset (2026-06-18) — con un test set così piccolo, poche configurazioni di training diverse convergono sulla stessa decisione sui campioni "facili" e sugli stessi pochi campioni ambigui.
+
+**Confronto con Fase 5** (classificatori classici su feature pre-estratte, stesso protocollo per stadi): Fase 5 otteneva F1 massimo ≈0.557 (Falciparum→Ovale, deep) e ≈0.533 (Ovale→Falciparum, radiomica). Il fine-tuning end-to-end di Fase 6 non supera questi massimi (miglior run: RedDino+full F1=0.465 su Falciparum→Vivax) — coerente con l'osservazione già fatta per l'intra-dataset e l'OOD standard: con un training set piccolo (130 campioni Falciparum), il fine-tuning end-to-end fatica a battere classificatori classici su feature pretrained congelate, probabilmente per overfitting sui pochi campioni disponibili.
+
+### Nota per il report
+
+Il protocollo copre solo 3 delle 9 coppie sorgente→target originariamente pianificate (solo Falciparum come sorgente), per il vincolo strutturale sul validation set di Vivax e Ovale descritto sopra. Questa limitazione va esplicitata nella sezione metodologica: non è possibile validare in modo affidabile un modello allenato su Vivax o Ovale con lo split patient-aware attuale, indipendentemente dal label space scelto (specie o stadio).

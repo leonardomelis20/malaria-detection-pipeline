@@ -1,0 +1,7 @@
+{
+    "accuracy": 0.6,
+    "f1_macro": 0.3472222222222222,
+    "mcc": 0.41825765660935443,
+    "model_name": "ConvNeXt",
+    "fine_tune_mode": "head_only"
+}

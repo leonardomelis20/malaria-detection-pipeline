@@ -1,0 +1,7 @@
+{
+    "accuracy": 0.5333333333333333,
+    "f1_macro": 0.3388888888888889,
+    "mcc": 0.4381512180573998,
+    "model_name": "DinoBloom",
+    "fine_tune_mode": "lora"
+}

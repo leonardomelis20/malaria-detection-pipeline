@@ -1,0 +1,7 @@
+{
+    "accuracy": 0.9,
+    "f1_macro": 0.45,
+    "mcc": 0.7962775715882576,
+    "model_name": "DinoBloom",
+    "fine_tune_mode": "head_only"
+}
