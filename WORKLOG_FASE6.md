@@ -875,6 +875,19 @@ F1 macro sugli stadi (R/G/S/T), test held-out sulla specie target:
 
 **F1 macro media complessiva sulle 45 run: 0.2229.**
 
+**Aggregato per modello** (media su tutte le combinazioni disponibili, le 3 coppie insieme):
+
+| Modello | F1 medio | N combo |
+|---|---|---|
+| DinoBloom | **0.2943** | 6 (head_only+lora × 3 coppie; full escluso per VRAM) |
+| RedDino | 0.2572 | 9 |
+| Swin-T | 0.2307 | 9 |
+| ConvNeXt | 0.2202 | 6 |
+| ResNet50 | 0.2056 | 6 |
+| ViT-B | 0.1467 | 9 |
+
+**Aggregato per modalità**: lora 0.2354 (n=12) > full 0.2193 (n=15) > head_only 0.2177 (n=18) — differenze contenute, nessuna modalità domina nettamente in questo protocollo (a differenza dell'intra-dataset, dove head_only batte full per le CNN pure — vedi 2026-06-18).
+
 ### Interpretazione
 
 Il protocollo produce F1 > 0 su 39/45 run, a differenza dei protocolli basati sulla specie che davano F1=0 su 141/144 e 0/25 (LOSO) run. Questo conferma l'ipotesi metodologica: lo stadio del ciclo cellulare è un label space effettivamente condiviso tra specie, e il fine-tuning end-to-end apprende una rappresentazione parzialmente trasferibile.
@@ -884,6 +897,8 @@ Il protocollo produce F1 > 0 su 39/45 run, a differenza dei protocolli basati su
 **DinoBloom è il modello più forte o tra i più forti in 2 coppie su 3** (Falciparum→Vivax: head_only 0.427, secondo dopo RedDino full 0.465; Falciparum→Ovale: head_only e lora a pari merito 0.450, il massimo assoluto), confermando l'osservazione già fatta in Fase 5 e nel vecchio OOD di Fase 6 che il pretraining domain-specific su microscopia di sangue malarico offre un vantaggio nella generalizzazione cross-specie. Da notare che DinoBloom+head_only e DinoBloom+lora ottengono **valori identici** su Falciparum→Ovale (10 campioni di test): fenomeno già osservato per Swin-T in intra-dataset (2026-06-18) — con un test set così piccolo, poche configurazioni di training diverse convergono sulla stessa decisione sui campioni "facili" e sugli stessi pochi campioni ambigui.
 
 **Confronto con Fase 5** (classificatori classici su feature pre-estratte, stesso protocollo per stadi): Fase 5 otteneva F1 massimo ≈0.557 (Falciparum→Ovale, deep) e ≈0.533 (Ovale→Falciparum, radiomica). Il fine-tuning end-to-end di Fase 6 non supera questi massimi (miglior run: RedDino+full F1=0.465 su Falciparum→Vivax) — coerente con l'osservazione già fatta per l'intra-dataset e l'OOD standard: con un training set piccolo (130 campioni Falciparum), il fine-tuning end-to-end fatica a battere classificatori classici su feature pretrained congelate, probabilmente per overfitting sui pochi campioni disponibili.
+
+**Il vantaggio di DinoBloom non è un caso isolato**: la media aggregata (0.294, la più alta tra i 6 modelli) conferma che il vantaggio osservato coppia per coppia non è dovuto a un paio di run fortunate, ma a un pattern sistematico coerente con Fase 5 OOD (§ 2026-06-28, F1 medio DinoBloom=0.464 su 45 combinazioni) e con l'OOD "originale" di specie (§ 2026-06-28, uniche 3 eccezioni non-zero su 144 run). **ViT-B è invece sistematicamente il modello più debole** (media 0.147, il più basso tra i 6), coerente con l'osservazione già fatta per l'intra-dataset (2026-06-18, Osservazione 3) sulla scarsa separabilità lineare del CLS token senza adattare il backbone. Qui il pattern è più incoerente che nell'intra-dataset: `full` è la modalità migliore su Falciparum→Malariae (0.220, l'unica run ViT-B non a zero su quella coppia) ma la peggiore su Falciparum→Vivax (0.147 contro 0.188 di head_only/lora) — il vantaggio di `full` osservato intra-dataset non si trasferisce in modo consistente al contesto cross-specie.
 
 ### Nota per il report
 
