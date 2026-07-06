@@ -193,8 +193,6 @@ if __name__ == "__main__":
             for fine_tune_mode in FINE_TUNE_MODES:
                 if fine_tune_mode == "lora" and not MODEL_CONFIG[model_name]["supports_lora"]:
                     continue
-                if model_name == "DinoBloom" and fine_tune_mode == "full":
-                    continue
                 planned_runs.append((source, target, model_name, fine_tune_mode))
 
     print(f"\nTotale run pianificate: {len(planned_runs)}")

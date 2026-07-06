@@ -903,3 +903,42 @@ Il protocollo produce F1 > 0 su 39/45 run, a differenza dei protocolli basati su
 ### Nota per il report
 
 Il protocollo copre solo 3 delle 9 coppie sorgente→target originariamente pianificate (solo Falciparum come sorgente), per il vincolo strutturale sul validation set di Vivax e Ovale descritto sopra. Questa limitazione va esplicitata nella sezione metodologica: non è possibile validare in modo affidabile un modello allenato su Vivax o Ovale con lo split patient-aware attuale, indipendentemente dal label space scelto (specie o stadio).
+
+---
+
+## 2026-07-06 — Aggiunta DinoBloom+full al protocollo OOD stages (48/48 run)
+
+### Motivazione
+
+Le 45 run del 2026-07-04 escludevano DinoBloom+full con lo stesso guard VRAM usato in `run_intra.py`/`run_ood.py`/`run_ood_loso.py`. Poiché il costo VRAM di DinoBloom+full a 518px era già stato verificato empiricamente per intra-dataset e OOD di specie (picco 5.16 GB su 6 GB, 2026-06-28), è stato rimosso il guard direttamente in `run_ood_stages.py` (non è stato creato uno script separato, a differenza di `run_dinobloom_full_intra.py`/`run_dinobloom_full_ood.py`) e il loop è stato rieseguito: il resume mechanism ha saltato le 45 combinazioni già completate e allenato solo le 3 nuove (DinoBloom+full × 3 coppie).
+
+### Esecuzione
+
+Nessun OOM riscontrato (VRAM picco coerente con il test precedente, GPU al 100% di utilizzo durante il training, confermato con `nvidia-smi`). Un'interruzione: la macchina è entrata in sospensione per gran parte della notte tra il 2026-07-05 e il 2026-07-06 durante il run Falciparum→Ovale (il processo non è stato ucciso, a differenza delle interruzioni di corrente precedenti — è rimasto in pausa in RAM e ha ripreso da solo al risveglio del sistema, con l'unico effetto collaterale di un tempo di parete molto più lungo del tempo di calcolo effettivo per quella run).
+
+### Risultati DinoBloom+full
+
+| Coppia | F1 macro | Accuracy | MCC |
+|---|---|---|---|
+| Falciparum→Vivax | 0.4167 | 0.7333 | 0.6271 |
+| Falciparum→Ovale | 0.3583 | 0.8000 | 0.5557 |
+| Falciparum→Malariae | 0.0000 | 0.0000 | 0.0000 |
+
+DinoBloom+full si inserisce al 2° posto su Falciparum→Vivax (dietro RedDino+full, 0.4651) e al 3° posto su Falciparum→Ovale (dietro le due configurazioni DinoBloom head_only/lora, 0.4500). Su Falciparum→Malariae produce lo stesso collasso a F1=0 già osservato per altre 6 combinazioni su quella coppia (vedi 2026-07-04): coerente con l'ipotesi già formulata (collasso sulla classe R maggioritaria in training, assente nel test Malariae).
+
+### Statistiche aggiornate (48/48 run)
+
+| Coppia | Media F1 | Run a F1=0 |
+|---|---|---|
+| Falciparum→Vivax | 0.3220 | 0/16 |
+| Falciparum→Ovale | 0.2674 | 0/16 |
+| Falciparum→Malariae | 0.0861 | **7/16** |
+| **Complessivo** | **0.2252** | **7/48** |
+
+**Per modello** (aggregato su 48 run): DinoBloom 0.2823 (n=9, ora il più alto) > RedDino 0.2572 (n=9) > Swin-T 0.2307 (n=9) > ConvNeXt 0.2202 (n=6) > ResNet50 0.2056 (n=6) > ViT-B 0.1467 (n=9). L'aggiunta di DinoBloom+full abbassa leggermente la media di DinoBloom rispetto alle 6 combinazioni parziali del 2026-07-04 (0.294→0.282, per lo zero su Malariae) ma non ne cambia la posizione di modello più forte in media.
+
+**Per modalità**: lora 0.2354 (n=12) > full 0.2258 (n=18) > head_only 0.2177 (n=18) — con DinoBloom+full incluso, `full` supera leggermente `head_only`, ma le differenze restano contenute.
+
+### Nota per il report
+
+Con questa aggiunta, tutte le 6×3=18 combinazioni modello×modalità×coppia teoricamente valide (meno le 2 esclusioni LoRA per CNN pure) sono state eseguite: 48/48, nessuna combinazione mancante per le 3 coppie con Falciparum come sorgente.

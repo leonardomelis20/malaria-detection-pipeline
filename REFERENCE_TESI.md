@@ -872,14 +872,15 @@ DinoBloom+full è stato eseguito successivamente e separatamente con `run_dinobl
 
 **Protocollo** (`scripts/phase 6/experiments/run_ood_stages.py`): a differenza del protocollo OOD "originale" di Fase 6 (§5.6, classificazione di specie, F1=0 per costruzione), qui il modello viene addestrato sugli **stadi** (R/G/S/T) della specie sorgente e valutato sugli stadi della specie target — stesso protocollo concettuale di Fase 5 OOD (§4.6), ma con fine-tuning end-to-end anziché feature+classificatore classico. **Solo Falciparum è sorgente**: è l'unica specie con tutti e 4 gli stadi rappresentati sia in training sia in validation nei fold 1-2 (Vivax e Ovale hanno zero campioni di validation in fold1_val/fold2_val — un solo `group_id` ciascuno nell'intero dataset, che uno split patient-aware assegna sempre interamente al training; vedi `WORKLOG_FASE6.md`, 2026-07-04).
 
-**Esecuzione completata (2026-07-04)**: 45/45 run completate (3 coppie × 15 combinazioni modello×modalità attive — non 16/48 come ipotizzato in una stesura precedente di questa sezione: i 6 modelli × 3 modalità = 18 combo meno 2 [ResNet50/ConvNeXt+LoRA non supportata] meno 1 [DinoBloom+full, guard VRAM] = 15 combo attive per coppia). Il loop è stato interrotto tre volte da eventi esterni (sospensione di sistema, due interruzioni di corrente) e ripreso ogni volta senza perdita di risultati grazie al resume mechanism (skip se `metrics.json` esiste).
+**Esecuzione completata (2026-07-06)**: 48/48 run completate (3 coppie × 16 combinazioni modello×modalità attive: 6 modelli × 3 modalità = 18 combo meno 2 [ResNet50/ConvNeXt+LoRA non supportata] = 16 combo per coppia). Il loop iniziale (2026-07-04) escludeva DinoBloom+full con lo stesso guard VRAM di `run_intra.py`/`run_ood.py` (45/45 run); il guard è stato rimosso il 2026-07-06 e le 3 combinazioni mancanti (DinoBloom+full × 3 coppie) sono state eseguite senza OOM, sfruttando il resume mechanism per saltare le 45 già completate. Il loop complessivo è stato interrotto quattro volte da eventi esterni (sospensione di sistema ×2, due interruzioni di corrente) e ripreso ogni volta senza perdita di risultati grazie allo skip-if-`metrics.json`-exists.
 
-**Tabella 1 — Risultati completi, Falciparum→Vivax** (media F1=0.3157, 0 run a zero):
+**Tabella 1 — Risultati completi, Falciparum→Vivax** (media F1=0.3220, 0 run a zero):
 
 | Modello | Modalità | F1 macro | Accuracy | MCC |
 |---|---|---|---|---|
 | RedDino | full | **0.4651** | 0.7333 | 0.5787 |
 | DinoBloom | head_only | 0.4271 | 0.6667 | 0.5176 |
+| DinoBloom | full | 0.4167 | 0.7333 | 0.6271 |
 | Swin-T | head_only | 0.4167 | 0.5333 | 0.2584 |
 | Swin-T | full | 0.3980 | 0.7333 | 0.5087 |
 | ResNet50 | head_only | 0.3712 | 0.6667 | 0.3957 |
@@ -894,13 +895,14 @@ DinoBloom+full è stato eseguito successivamente e separatamente con `run_dinobl
 | ViT-B | lora | 0.1875 | 0.6000 | 0.0000 |
 | ViT-B | full | 0.1471 | 0.3333 | −0.0160 |
 
-**Tabella 1b — Falciparum→Ovale** (media F1=0.2613, 0 run a zero):
+**Tabella 1b — Falciparum→Ovale** (media F1=0.2674, 0 run a zero):
 
 | Modello | Modalità | F1 macro | Accuracy | MCC |
 |---|---|---|---|---|
 | DinoBloom | head_only | **0.4500** | 0.9000 | 0.7963 |
 | DinoBloom | lora | 0.4500 | 0.9000 | 0.7963 |
 | RedDino | lora | 0.3750 | 0.8000 | 0.6370 |
+| DinoBloom | full | 0.3583 | 0.8000 | 0.5557 |
 | RedDino | head_only | 0.3558 | 0.7000 | 0.5250 |
 | Swin-T | full | 0.2923 | 0.6000 | 0.2431 |
 | Swin-T | lora | 0.2917 | 0.5000 | 0.2431 |
@@ -914,7 +916,7 @@ DinoBloom+full è stato eseguito successivamente e separatamente con `run_dinobl
 | ViT-B | full | 0.1667 | 0.4000 | 0.1091 |
 | RedDino | full | 0.1111 | 0.2000 | 0.1637 |
 
-**Tabella 1c — Falciparum→Malariae** (media F1=0.0918, **6/15 run a F1=0 esatto**):
+**Tabella 1c — Falciparum→Malariae** (media F1=0.0861, **7/16 run a F1=0 esatto**):
 
 | Modello | Modalità | F1 macro | Accuracy | MCC |
 |---|---|---|---|---|
@@ -927,6 +929,7 @@ DinoBloom+full è stato eseguito successivamente e separatamente con `run_dinobl
 | ConvNeXt | full | 0.1333 | 0.3333 | −0.1132 |
 | DinoBloom | lora | 0.1000 | 0.0833 | 0.0513 |
 | Swin-T | lora | 0.0769 | 0.1667 | −0.2402 |
+| DinoBloom | full | 0.0000 | 0.0000 | 0.0000 |
 | DinoBloom | head_only | 0.0000 | 0.0000 | −0.0241 |
 | ResNet50 | head_only | 0.0000 | 0.0000 | 0.0000 |
 | Swin-T | head_only | 0.0000 | 0.0000 | −0.3963 |
@@ -934,7 +937,7 @@ DinoBloom+full è stato eseguito successivamente e separatamente con `run_dinobl
 | ViT-B | head_only | 0.0000 | 0.0000 | 0.0000 |
 | ViT-B | lora | 0.0000 | 0.0000 | 0.0000 |
 
-F1 macro media complessiva sulle 45 run: **0.2229**.
+F1 macro media complessiva sulle 48 run: **0.2252**.
 
 **Tabella 2 — Miglior F1 per coppia**:
 
@@ -944,18 +947,18 @@ F1 macro media complessiva sulle 45 run: **0.2229**.
 | Falciparum→Ovale | DinoBloom | head_only / lora (pari merito) | **0.4500** |
 | Falciparum→Malariae | ResNet50 | full | **0.2500** |
 
-**Tabella 3 — F1 medio per modello** (su tutte le combinazioni completate, N=45 totali):
+**Tabella 3 — F1 medio per modello** (su tutte le combinazioni completate, N=48 totali):
 
 | Modello | F1 medio | N combo |
 |---|---|---|
-| DinoBloom | 0.2943 | 6 (head_only+lora × 3 coppie; full skippato per VRAM) |
+| DinoBloom | **0.2823** | 9 (tutte e 3 le modalità × 3 coppie) |
 | RedDino | 0.2572 | 9 |
 | Swin-T | 0.2307 | 9 |
 | ConvNeXt | 0.2202 | 6 |
 | ResNet50 | 0.2056 | 6 |
 | ViT-B | 0.1467 | 9 |
 
-**Per modalità**: lora 0.2354 (n=12) > full 0.2193 (n=15) > head_only 0.2177 (n=18) — differenze contenute, nessuna modalità domina nettamente.
+**Per modalità**: lora 0.2354 (n=12) > full 0.2258 (n=18) > head_only 0.2177 (n=18) — differenze contenute, nessuna modalità domina nettamente.
 
 **Tabella 4 — Confronto con Fase 5 OOD (stesse coppie, Falciparum come sorgente)**:
 
@@ -971,11 +974,11 @@ F1 macro media complessiva sulle 45 run: **0.2229**.
 
 2. **Falciparum→Malariae è l'unica coppia dove Fase 6 batte Fase 5** (+0.078). Entrambi i protocolli restano comunque su valori bassi in assoluto (0.17-0.25): Malariae è strutturalmente la specie target più difficile in ogni protocollo testato finora (specie, stadi, deep, radiomica), coerente con la sua biologia più divergente (parassita più piccolo, ciclo eritrocitico più lungo — vedi anche §4.6 e `WORKLOG_FASE6.md` 2026-06-30).
 
-3. **6/15 run su Falciparum→Malariae danno F1 esattamente 0**, un valore non osservato nelle altre due coppie stage-based. Ipotesi: il training Falciparum è fortemente sbilanciato verso lo stadio R (106/130 = 81.5% dei campioni), mentre il test set di Malariae ha **zero campioni R** (0/12); un collasso del modello sulla classe maggioritaria del training produce quindi zero predizioni corrette per costruzione su quello specifico test set — coerente con MCC vicino a zero o negativo in quelle run.
+3. **7/16 run su Falciparum→Malariae danno F1 esattamente 0** (incluso DinoBloom+full, aggiunto il 2026-07-06), un valore non osservato nelle altre due coppie stage-based. Ipotesi: il training Falciparum è fortemente sbilanciato verso lo stadio R (106/130 = 81.5% dei campioni), mentre il test set di Malariae ha **zero campioni R** (0/12); un collasso del modello sulla classe maggioritaria del training produce quindi zero predizioni corrette per costruzione su quello specifico test set — coerente con MCC vicino a zero o negativo in quelle run.
 
-4. **DinoBloom è il modello più forte o tra i più forti in 2 coppie su 3** (primo in Falciparum→Ovale con 0.450, secondo in Falciparum→Vivax con 0.427 dopo RedDino), confermando — anche in questo protocollo — l'osservazione già fatta per l'OOD "originale" di specie (§4.11) e per Fase 5 (§4.6) che il pretraining domain-specific di DinoBloom offre un vantaggio nella generalizzazione cross-specie. Da notare che DinoBloom+head_only e DinoBloom+lora ottengono **valori identici** su Falciparum→Ovale (10 campioni di test) — stesso fenomeno già documentato per Swin-T in intra-dataset (§4.11, WORKLOG 2026-06-18): con un test set così piccolo, configurazioni di training diverse convergono sulla stessa decisione sui campioni "facili" e sui pochi campioni ambigui.
+4. **DinoBloom è il modello più forte in media** (0.282, tabella 3) e tra i più forti in 2 coppie su 3 (primo in Falciparum→Ovale con 0.450, secondo/terzo in Falciparum→Vivax con head_only=0.427 e full=0.417, dopo RedDino/full=0.465), confermando — anche in questo protocollo — l'osservazione già fatta per l'OOD "originale" di specie (§4.11) e per Fase 5 (§4.6) che il pretraining domain-specific di DinoBloom offre un vantaggio nella generalizzazione cross-specie. Da notare che DinoBloom+head_only e DinoBloom+lora ottengono **valori identici** su Falciparum→Ovale (10 campioni di test) — stesso fenomeno già documentato per Swin-T in intra-dataset (§4.11, WORKLOG 2026-06-18): con un test set così piccolo, configurazioni di training diverse convergono sulla stessa decisione sui campioni "facili" e sui pochi campioni ambigui. Il vantaggio di DinoBloom non si estende però a Falciparum→Malariae, dove anche DinoBloom+full collassa a F1=0 (osservazione 3).
 
-5. **Confronto con il protocollo OOD "originale" di Fase 6** (§5.6, classificazione di specie): quel protocollo dava F1=0 su 141/144 run per costruzione (label space non condiviso). Il protocollo stage-based dà F1>0 su 39/45 run (87%), confermando che lo stadio del ciclo cellulare è un label space effettivamente trasferibile tra specie per il fine-tuning end-to-end, non solo per i classificatori classici di Fase 5.
+5. **Confronto con il protocollo OOD "originale" di Fase 6** (§5.6, classificazione di specie): quel protocollo dava F1=0 su 141/144 run per costruzione (label space non condiviso). Il protocollo stage-based dà F1>0 su 41/48 run (85%), confermando che lo stadio del ciclo cellulare è un label space effettivamente trasferibile tra specie per il fine-tuning end-to-end, non solo per i classificatori classici di Fase 5.
 
 ### 4.10 — Confronto Fase 5 vs Fase 6 intra-dataset
 
@@ -1048,10 +1051,10 @@ Verificato: sulle 144 run totali del protocollo OOD "originale" (classificazione
 
 | Script | Stato | Dettaglio |
 |---|---|---|
-| `run_ood_stages.py` | **COMPLETATO** | 45/45 run (3 coppie × 15 combo attive). Dati finali riportati in §4.9. |
+| `run_ood_stages.py` | **COMPLETATO** | 48/48 run (3 coppie × 16 combo attive, incluso DinoBloom+full aggiunto il 2026-07-06). Dati finali riportati in §4.9. |
 
 Nessuna azione pendente per il Capitolo 4: tutte le tabelle di §4.9 riportano dati definitivi.
 
 ---
 
-*File generato il 2026-07-01 da Claude Code (Sonnet 4.6) tramite esplorazione diretta del repository. Sezioni 10-12 aggiunte il 2026-07-03 da Claude Code (Sonnet 5) per la stesura del Capitolo 4 (Esperimenti e Risultati). §4.9, §11 e §12 aggiornate il 2026-07-04 da Claude Code (Sonnet 5) con i risultati definitivi delle 45/45 run di `run_ood_stages.py`.*
+*File generato il 2026-07-01 da Claude Code (Sonnet 4.6) tramite esplorazione diretta del repository. Sezioni 10-12 aggiunte il 2026-07-03 da Claude Code (Sonnet 5) per la stesura del Capitolo 4 (Esperimenti e Risultati). §4.9, §11 e §12 aggiornate il 2026-07-04 con i risultati delle prime 45/45 run di `run_ood_stages.py`, e nuovamente il 2026-07-06 dopo l'aggiunta di DinoBloom+full (48/48 run totali) da Claude Code (Sonnet 5).*
