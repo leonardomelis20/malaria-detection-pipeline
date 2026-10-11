@@ -47,7 +47,8 @@ graph TD
     D --> E[Prevents Patient-Level Leakage]
     E --> F[Feature & Training Pipeline: 6 Backbones + Radiomics]
     F --> G[Dual Paradigms: Feature Extraction vs Fine-Tuning Head/Full/LoRA]
-    G --> H[Evaluation & Error Analysis: Intra-dataset & OOD Metrics]```
+    G --> H[Evaluation & Error Analysis: Intra-dataset & OOD Metrics]
+```
 🚀 Quickstart
 Prerequisites
 Python 3.12
