@@ -1,4 +1,3 @@
-Markdown
 # 🔬 Multi-Species Malaria Parasite Classification Pipeline
 
 ![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)
@@ -37,6 +36,7 @@ Developed as part of the B.Sc. Thesis in Computer Science (*110/110 cum laude*) 
 | **OOD Generalization** | DinoBloom (Domain-Specific) | *Top OOD* | Pre-training on biological microscopy images significantly improves cross-species adaptability. |
 
 ---
+
 ## 🏗 Architecture & Pipeline Flow
 
 ```mermaid
@@ -48,18 +48,16 @@ graph TD
     E --> F[Feature & Training Pipeline: 6 Backbones + Radiomics]
     F --> G[Dual Paradigms: Feature Extraction vs Fine-Tuning Head/Full/LoRA]
     G --> H[Evaluation & Error Analysis: Intra-dataset & OOD Metrics]
----
+🚀 Quickstart
+Prerequisites
+Python 3.12
 
-## 🚀 Quickstart
+PyTorch with CUDA support
 
-### Prerequisites
-- Python 3.12
-- PyTorch with CUDA support
-
-### Setup & Run
-```bash
+Setup & Run
+Bash
 # Clone the repository
-git clone [https://github.com/leonardomelis20/malaria-detection-pipeline.git](https://github.com/leonardomelis20/malaria-detection-pipeline.git)
+git clone https://github.com/leonardomelis20/malaria-detection-pipeline.git
 cd malaria-detection-pipeline
 
 # Install dependencies
@@ -74,4 +72,4 @@ M.Sc. Student in Artificial Intelligence and Health (AIBH) – Università degli
 
 B.Sc. Graduate in Computer Science (110/110 cum laude) – Università degli Studi di Cagliari
 
-https://github.com/leonardomelis20
+GitHub Profile
