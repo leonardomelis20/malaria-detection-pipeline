@@ -1,62 +1,95 @@
-# MP-IDB: The Malaria Parasite Image Database for Image Processing and Analysis
-MP-IDB is the public image dataset described in the following article: https://link.springer.com/chapter/10.1007/978-3-030-13835-6_7
-Authors: Andrea Loddo, Cecilia Di Ruberto, Michel Kocher, Guy Prod'Hom.
+Markdown
+# 🔬 Multi-Species Malaria Parasite Classification Pipeline
 
-# NOTE: please indicate the following in case of using this dataset in your own work:
+![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-EE4C2C?logo=pytorch&logoColor=white)
+![Domain](https://img.shields.io/badge/Domain-AI%20in%20Healthcare%20%26%20Digital%20Pathology-green)
+![Status](https://img.shields.io/badge/Status-Completed%20%2F%20Research-brightgreen)
+![License](https://img.shields.io/badge/License-MIT-orange)
 
-@InProceedings{10.1007/978-3-030-13835-6_7,
-  author="Loddo, Andrea
-  and Di Ruberto, Cecilia
-  and Kocher, Michel
-  and Prod'Hom, Guy",
-  editor="Lepore, Natasha
-  and Brieva, Jorge
-  and Romero, Eduardo
-  and Racoceanu, Daniel
-  and Joskowicz, Leo",
-  title="MP-IDB: The Malaria Parasite Image Database for Image Processing and Analysis",
-  booktitle="Processing and Analysis of Biomedical Information",
-  year="2019",
-  publisher="Springer International Publishing",
-  address="Cham",
-  pages="57--65",
-  isbn="978-3-030-13835-6"
-}
+An end-to-end computational framework for automated multi-species classification of *Plasmodium* parasites (*P. falciparum*, *P. vivax*, *P. malariae*, *P. ovale*) from microscopic red blood cell (RBC) images on the **MP-IDB** dataset.
 
----------------------------------------------------------------------------------------------------------------
+Developed as part of the B.Sc. Thesis in Computer Science (*110/110 cum laude*) at the University of Cagliari, supervised by Prof. Cecilia Di Ruberto and Prof. Luca Zedda.
 
-# Description: 
-MP-IDB comprises four species of Malaria parasites: Falciparum, Malariae, Ovale, Vivax. 
-For each species, there are four distinct stages of life, described in the filenames as follows:
-- R: indicates the presence of 1 or more Ring stage parasites
-- T: indicates the presence of 1 or more Trophozoite stage parasites
-- S: indicates the presence of 1 or more Schizont stage parasites
-- G: indicates the presence of 1 or more Gametocyte stage parasites.
+---
 
-Each original image has its own ground-truth, provided by expert pathologists, while every image has been analyzed from left to right, therefore every filename indicates the presence of the parasites following this indication.
+## 📌 Key Highlights & Methodological Contributions
 
----------------------------------------------------------------------------------------------------------------
+- **Patient-Aware Splitting (Zero Data Leakage):** Designed manual patient-group splits (`group_id`) ensuring strict independence between training, validation, and the 58-sample held-out test set.
+- **RBC Crop Extraction Pipeline:** Automated segmentation using LAB color space (A-channel), Otsu thresholding, elliptical fitting, and Circular Hough Transform as fallback.
+- **Heterogeneous Backbone Benchmarking:** Evaluated 6 diverse architectures:
+  - **ImageNet-pretrained:** `ResNet50`, `ConvNeXt Tiny`, `Swin Transformer (Swin-T)`, `ViT-B/16`.
+  - **Domain-Specific Foundation Models:** `RedDino` (RBC-pretrained ViT) and `DinoBloom` (hematology ViT).
+- **Dual Classification Paradigms:**
+  1. *Traditional ML Classifiers* (Logistic Regression, Random Forest, k-NN) on pre-extracted Deep Features & Radiomic Features (scikit-image).
+  2. *End-to-End Fine-Tuning* across `head_only`, `full`, and `LoRA` (Low-Rank Adaptation) regimes.
+- **Robust Evaluation:** Evaluated across both **Intra-dataset** and **Out-of-Distribution (OOD)** cross-species generalization scenarios.
 
-# LICENSE
+---
 
-MIT License
+## 🏆 Key Results
 
-Copyright (c) 2021 andrealoddo
+| Approach | Best Configuration | Intra-Dataset Macro F1 | Key Finding |
+| :--- | :--- | :---: | :--- |
+| **Deep Features** | ConvNeXt Tiny + Logistic Regression | **0.9789** | Linear probing on high-quality pre-trained features outperforms full fine-tuning on small datasets. |
+| **End-to-End Fine-Tuning** | ConvNeXt Tiny (`head_only`) | **0.9686** | Head-only adaptation maintains strong generalization with only 0.01% trainable parameters. |
+| **Radiomic Features** | 61 Features + Random Forest | **0.9566** | Highly competitive baseline using non-deep analytical descriptors without GPU overhead. |
+| **OOD Generalization** | DinoBloom (Domain-Specific) | *Top OOD* | Pre-training on biological microscopy images significantly improves cross-species adaptability. |
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+---
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+## 🏗 Architecture & Pipeline Flow
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+┌─────────────────────────────────┐
+│  Raw Microscopy Images (MP-IDB) │
+└────────────────┬────────────────┘
+│
+▼
+┌─────────────────────────────────┐   [Segmentation Module]
+│  LAB Color Space & Elliptic Fit │ ──► Automated RBC Crop Extraction
+└────────────────┬────────────────┘
+│
+▼
+┌─────────────────────────────────┐   [Patient-Aware Splitting]
+│  Group-ID Partitioning          │ ──► Prevents Patient-Level Leakage
+└────────────────┬────────────────┘
+│
+▼
+┌─────────────────────────────────┐   [Feature / Training Pipeline]
+│  Backbones (ConvNeXt, ViT, etc) │ ──► Radiomic / Deep Feature Extraction
+│  & Fine-Tuning (Head/Full/LoRA) │     or End-to-End Optimization
+└────────────────┬────────────────┘
+│
+▼
+┌─────────────────────────────────┐
+│  Evaluation & Error Analysis    │ ──► Intra-dataset & OOD Metrics
+└─────────────────────────────────┘
+
+
+---
+
+## 🚀 Quickstart
+
+### Prerequisites
+- Python 3.12
+- PyTorch with CUDA support
+
+### Setup & Run
+```bash
+# Clone the repository
+git clone [https://github.com/leonardomelis20/malaria-detection-pipeline.git](https://github.com/leonardomelis20/malaria-detection-pipeline.git)
+cd malaria-detection-pipeline
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Inspect extracted features or run inference
+python scripts/phase4/inspect_convnext_tiny.py
+👨‍💻 Author
+Leonardo Melis
+
+M.Sc. Student in Artificial Intelligence and Health (AIBH) – Università degli Studi di Torino
+
+B.Sc. Graduate in Computer Science (110/110 cum laude) – Università degli Studi di Cagliari
+
+https://github.com/leonardomelis20
