@@ -37,35 +37,17 @@ Developed as part of the B.Sc. Thesis in Computer Science (*110/110 cum laude*) 
 | **OOD Generalization** | DinoBloom (Domain-Specific) | *Top OOD* | Pre-training on biological microscopy images significantly improves cross-species adaptability. |
 
 ---
-
 ## 🏗 Architecture & Pipeline Flow
 
-┌─────────────────────────────────┐
-│  Raw Microscopy Images (MP-IDB) │
-└────────────────┬────────────────┘
-│
-▼
-┌─────────────────────────────────┐   [Segmentation Module]
-│  LAB Color Space & Elliptic Fit │ ──► Automated RBC Crop Extraction
-└────────────────┬────────────────┘
-│
-▼
-┌─────────────────────────────────┐   [Patient-Aware Splitting]
-│  Group-ID Partitioning          │ ──► Prevents Patient-Level Leakage
-└────────────────┬────────────────┘
-│
-▼
-┌─────────────────────────────────┐   [Feature / Training Pipeline]
-│  Backbones (ConvNeXt, ViT, etc) │ ──► Radiomic / Deep Feature Extraction
-│  & Fine-Tuning (Head/Full/LoRA) │     or End-to-End Optimization
-└────────────────┬────────────────┘
-│
-▼
-┌─────────────────────────────────┐
-│  Evaluation & Error Analysis    │ ──► Intra-dataset & OOD Metrics
-└─────────────────────────────────┘
-
-
+```mermaid
+graph TD
+    A[Raw Microscopy Images - MP-IDB] --> B[Segmentation Module: LAB Color Space & Elliptic Fit]
+    B --> C[Automated RBC Crop Extraction]
+    C --> D[Patient-Aware Splitting: Group-ID Partitioning]
+    D --> E[Prevents Patient-Level Leakage]
+    E --> F[Feature & Training Pipeline: 6 Backbones + Radiomics]
+    F --> G[Dual Paradigms: Feature Extraction vs Fine-Tuning Head/Full/LoRA]
+    G --> H[Evaluation & Error Analysis: Intra-dataset & OOD Metrics]
 ---
 
 ## 🚀 Quickstart
