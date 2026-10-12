@@ -4,7 +4,7 @@ from pathlib import Path
 from sklearn.preprocessing import LabelEncoder
 from utils import load_features, get_classifiers, save_results, run_experiment, run_experiment_ood
 
-BASE_ROOT = Path(r"C:\Users\laura\OneDrive\Documenti\UNIVCA\TERZO ANNO\TIROCINIO\MP-IDB-The-Malaria-Parasite-Image-Database-for-Image-Processing-and-Analysis")
+BASE_ROOT = Path(__file__).resolve().parent.parent.parent
 FEATURES_DIR = BASE_ROOT / "results" / "features"
 RESULTS_PATH = BASE_ROOT / "results" / "classification"
 SPECIES = ["Falciparum", "Vivax", "Ovale", "Malariae"]
