@@ -6,7 +6,7 @@ from utils import load_features, save_results, get_classifiers, run_experiment
 
 
 
-BASE_ROOT = Path(r"C:\Users\laura\OneDrive\Documenti\UNIVCA\TERZO ANNO\TIROCINIO\MP-IDB-The-Malaria-Parasite-Image-Database-for-Image-Processing-and-Analysis")
+BASE_ROOT = Path(__file__).resolve().parent.parent.parent
 FEATURES_PATH = BASE_ROOT / "results" / "features"
 RANDOM_STATE = 42
 
