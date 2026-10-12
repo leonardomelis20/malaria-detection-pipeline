@@ -21,9 +21,9 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 SPECIES = ["Falciparum", "Vivax", "Ovale", "Malariae"]
 SPECIES_TO_ID = {
     "Falciparum": 0,
-    "Malariae": 1,
+    "Vivax": 1,
     "Ovale": 2, 
-    "Vivax": 3
+    "Malariae": 3
 }
 NUM_SPECIES = 4
 
